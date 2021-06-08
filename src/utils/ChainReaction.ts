@@ -221,6 +221,9 @@ export class ChainReaction{
         
         const queue = [];
         
+        if(this.isGameOver()){
+            throw new Error("Game Over already..");     
+       }
 
         if(!this.isValidPosition(prevState, position)){
             console.log("cant do the operation");
