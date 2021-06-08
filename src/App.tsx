@@ -183,15 +183,15 @@ const Compound = ({ cell }) => {
   const [revolve, setRevolve] = useState(false);
   useFrame(state => {
     if (revolve) {
-      // compound.current.rotation.x += 0.01;
-      // compound.current.rotation.z += 0.05;
+      compound.current.rotation.x += 0.01;
+      compound.current.rotation.z += 0.05;
     }
   });
 
   useEffect(() => {
     const timer = setTimeout(() => {
-      setRevolve(true);
-    }, 500);
+      // setRevolve(true);
+    }, 600);
     return () => {
       clearTimeout(timer);
     };
