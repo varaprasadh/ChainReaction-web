@@ -11,6 +11,8 @@ import * as THREE from "three";
 import "./components/three/ColorMaterial";
 import { Grid as BoxGrid } from "./components/Grid";
 
+import bubbleAudio from "./assets/audio/bubble.mp3";
+
 
 //Components
 
@@ -131,10 +133,19 @@ const Sphere = ({ position, from, color, args = [0.2, 32, 32] }) => {
 // compound  : group of atoms 
 // based on count arrange placement 
 
+const explodeSound = new Audio(bubbleAudio);
 
 const Compound = ({ cell }) => {
 
   const compound = useRef();
+
+  console.log("can i play", cell.items.length > cell.capacity , cell.items.length, cell.capacity);
+  
+  if (cell.items.length > cell.capacity) {
+    console.log("explode sound")
+    explodeSound.currentTime = 0;
+    explodeSound.play();
+  }
 
   const atom = cell.items.length && cell.items[0];
 
@@ -188,15 +199,17 @@ const Compound = ({ cell }) => {
     }
   });
 
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      // setRevolve(true);
-    }, 600);
-    return () => {
-      clearTimeout(timer);
-    };
-  },[])
-
+  // useEffect(() => {
+  //   console.log("only running once"); 
+  //   const timer = setTimeout(() => {
+  //     setRevolve(true);
+  //   }, 600);
+  //   return () => {
+  //     setRevolve(false);
+  //     clearTimeout(timer);
+  //   };
+  // }, [cell.items]);
+  
   return (
     <group ref={compound} position={[_x, _y, _z]}>
       {
@@ -282,6 +295,7 @@ const AtomContainer = () => {
   const [player, setPlayer] = useState({}); // first player of the board 
   const [animationQueue, setAnimationQueue] = useState([]);
 
+  const chainReaction = useRef(new ChainReaction({}, 2));
 
   useEffect(()=>{
     setPlayer(chainReaction.current.getCurrentPlayer());
@@ -290,18 +304,25 @@ const AtomContainer = () => {
   useEffect(()=>{
       let timer = null;
       if (animationQueue.length) {
+        const animationState = animationQueue.shift();
+        let transitionDuration = 1000;
+        const explodableCells = animationState.filter(row => row.filter(cell => cell.items.length > cell.capacity).length).length > 0;
+        if (explodableCells){
+          transitionDuration = 500;
+        };
+
         setTimeout(() => {
-           const animationState = animationQueue.shift();
+          
           setState(animationState);
           setAnimationQueue([...animationQueue]);
-        }, 1000) // ?
+        }, transitionDuration) 
       }
       return () => clearTimeout(timer);
 
   }, [animationQueue])
 
 
-  const chainReaction = useRef(new ChainReaction({},2));
+
 
   const resetGame = () => {
     console.log("is it happening")
@@ -329,21 +350,11 @@ const AtomContainer = () => {
 
       const nextFrame = states.shift();
 
-      console.log({
-        nextFrame
-      });
-      
       setState(nextFrame);
 
       if(states.length){
         setAnimationQueue(states);
       }
-            // loop through each state and animate 
-      // next player 
-      console.log({
-        nextPlayer,
-        states
-      });
 
       setPlayer(nextPlayer);
 
@@ -351,12 +362,12 @@ const AtomContainer = () => {
       if (gameOver) {
         console.log(player.id, player.name);
         const Message = `"game over buddy winner is",${player.id}`
-        setTimeout(() => {
-          // resetGame();
-          // alert(Message);
-          console.log("game is over");
+        // setTimeout(() => {
+        //   // resetGame();
+        //   // alert(Message);
+        //   console.log("game is over");
 
-        }, 1000)
+        // }, 1000)
       }
     }catch(error){
       console.error(error);

@@ -206,18 +206,11 @@ export class ChainReaction{
     };
 
     nextState(prevState: Board , position: Position){
-
-        console.log("move start \n", position);
-        this.printBoard();
-        console.log("move end\n");
         
         // level order traversal;
         const states = [];
         // states.push(JSON.parse(JSON.stringify(prevState)));
-        // TODO validate the player as well, 
-        // can put in a empty cell,
-        // can put in their cell, +1 💟 
-    
+     
         
         const queue = [];
         
