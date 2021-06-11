@@ -351,8 +351,8 @@ const AtomContainer = () => {
       setPlayer(nextPlayer);
   
       if (gameOver) {
-        console.log(player.id, player.name);
         const Message = `"game over buddy winner is",${player.id}`
+        console.log(Message, player.id, player.name);
         // setTimeout(() => {
         //   // resetGame();
         //   // alert(Message);
