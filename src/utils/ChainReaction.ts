@@ -261,7 +261,7 @@ export class ChainReaction{
                         // check if it can explode
                         if (cell.items.length > cell.capacity){
                             const owner = { ... cell.owner};
-                            cell.owner = null; // going to explode and cell will be empty at that time 
+                           // cell.owner = null; // going to explode and cell will be empty at that time 
                             // share the atoms to neighbors <==> exploding
                             const neighborPositions = this.getNeighbors(prevState, cell.position);
                             for (const pos of neighborPositions) {
@@ -272,7 +272,9 @@ export class ChainReaction{
                                     cellItem.currentPosition = neighbor.position;
                                     neighbor.owner = owner as any;
                                     neighbor.items.push(cellItem); // keep an eye
-                                };
+                                }else{
+                                    cell.owner = null;
+                                }
                                 // if neighbor can explode , add it to queue for next layer 
                                 if (neighbor.items.length > neighbor.capacity) {
                                     queue.push(neighbor);
@@ -287,7 +289,10 @@ export class ChainReaction{
             };
             console.log("\n");
             this.printBoard();
-            
+            console.log({
+                finalState: prevState
+            });
+
             states.push(JSON.parse(JSON.stringify(prevState)));
             if(this.isGameOver()){
                 // return states till this point and  winner

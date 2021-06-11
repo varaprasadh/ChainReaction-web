@@ -92,7 +92,7 @@ const Sphere = ({ position, from, color, args = [0.2, 32, 32] }) => {
 
       mesh.current.position.set(x1, y1, z1 );
       let step = 0;
-      // if(steps === 0) return;
+
       const timer = setInterval(() => {
         if(!mesh.current) return clearInterval(timer);
         mesh.current.position.x += dx;
@@ -299,10 +299,9 @@ const AtomContainer = () => {
       if (animationQueue.length ) {
         const animationState = animationQueue.shift();
         let transitionDuration = 1000;
-        const explodableCells = animationState.filter(row => row.filter(cell => cell.items.length > cell.capacity).length).length > 0;
-        if (explodableCells){
-          transitionDuration = 300;
-          console.log("play audio");
+        const explodableState = animationState.filter(row => row.filter(cell => cell.items.length > cell.capacity).length).length > 0;
+        if (explodableState){
+          transitionDuration = 600;
           explodeSound.currentTime = 0;
           explodeSound.play();
         };
@@ -311,14 +310,15 @@ const AtomContainer = () => {
           setAnimationQueue([...animationQueue]);
         }else{
           setState(animationState);
-          setAnimationQueue([...animationQueue]);
-          setTimeout(() => {
-            setState(animationState);
+          // setAnimationQueue([...animationQueue]);
+          timer = setTimeout(() => {
+            // setState(animationState);
             setAnimationQueue([...animationQueue]);
           }, transitionDuration)
         }
 
-      }
+      };
+
       return () => clearTimeout(timer);
 
   }, [animationQueue])
@@ -346,19 +346,7 @@ const AtomContainer = () => {
         nextPlayer // next player 
       } = result;
 
-      // const nextFrame = states.shift();
-      // console.log({
-      //   states,
-      //   nextFrame
-      // });
 
-      // const explodableCells = nextFrame.filter(row => row.filter(cell => cell.items.length > cell.capacity).length).length > 0;
-      // if(explodableCells){
-      //   console.log("play audio, main fram");
-      //   explodeSound.currentTime = 0;
-      //   explodeSound.play();
-      // }
-      // setState(nextFrame);
       setAnimationQueue(states);
       setPlayer(nextPlayer);
   
