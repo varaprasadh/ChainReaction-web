@@ -90,15 +90,11 @@ const Sphere = ({ position, from, color, args = [0.2, 32, 32] }) => {
       const dx = diffX / 10;
       const dy = diffY / 10;
 
-      console.log(mesh.current);
-
-      
-
-
       mesh.current.position.set(x1, y1, z1 );
       let step = 0;
       // if(steps === 0) return;
       const timer = setInterval(() => {
+        if(!mesh.current) return clearInterval(timer);
         mesh.current.position.x += dx;
         mesh.current.position.y += dy;
         step++;
@@ -111,12 +107,6 @@ const Sphere = ({ position, from, color, args = [0.2, 32, 32] }) => {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-
-  // const [expand, setExpand] = useState(false);
-
-  // const props = useSpring({
-  //   scale: expand ? [5, 5, 5] : [2, 2, 2],
-  // });
 
   return (
     <a.mesh
@@ -138,16 +128,9 @@ const Sphere = ({ position, from, color, args = [0.2, 32, 32] }) => {
 // compound  : group of atoms 
 // based on count arrange placement 
 
-const explodeSound = new Audio(bubbleAudio);
-
 const Compound = ({ cell }) => {
 
   const compound = useRef();
-  
-  if (cell.items.length > cell.capacity) {
-    explodeSound.currentTime = 0;
-    explodeSound.play();
-  }
 
   const atom = cell.items.length && cell.items[0];
 
@@ -214,6 +197,7 @@ const Compound = ({ cell }) => {
   //   };
   // }, [cell.items]);
   
+
   return (
     <group ref={compound} position={[_x, _y, _z]}>
       {
@@ -294,6 +278,9 @@ const Grid = ({ args, rows = 5, columns = 5, color, position = [0, 0, 0], onGrid
 
 }
 
+
+const explodeSound = new Audio(bubbleAudio);
+
 const AtomContainer = () => {
   const [state, setState] = useState([]);
   const [player, setPlayer] = useState({}); // first player of the board 
@@ -305,21 +292,32 @@ const AtomContainer = () => {
     setPlayer(chainReaction.current.getCurrentPlayer());
   }, []);
 
+  // handles animation queue 
   useEffect(()=>{
       let timer = null;
-      if (animationQueue.length) {
+
+      if (animationQueue.length ) {
         const animationState = animationQueue.shift();
         let transitionDuration = 1000;
         const explodableCells = animationState.filter(row => row.filter(cell => cell.items.length > cell.capacity).length).length > 0;
         if (explodableCells){
-          transitionDuration = 600;
+          transitionDuration = 300;
           console.log("play audio");
+          explodeSound.currentTime = 0;
+          explodeSound.play();
         };
-
-        setTimeout(() => {
+        if (animationQueue.length === 1) {
           setState(animationState);
           setAnimationQueue([...animationQueue]);
-        }, transitionDuration) 
+        }else{
+          setState(animationState);
+          setAnimationQueue([...animationQueue]);
+          setTimeout(() => {
+            setState(animationState);
+            setAnimationQueue([...animationQueue]);
+          }, transitionDuration)
+        }
+
       }
       return () => clearTimeout(timer);
 
@@ -348,18 +346,19 @@ const AtomContainer = () => {
         nextPlayer // next player 
       } = result;
 
-      const nextFrame = states.shift();
-      console.log({
-        states,
-        nextFrame
-      });
+      // const nextFrame = states.shift();
+      // console.log({
+      //   states,
+      //   nextFrame
+      // });
 
-      const explodableCells = nextFrame.filter(row => row.filter(cell => cell.items.length > cell.capacity).length).length > 0;
-      if(explodableCells){
-        console.log("play audio, main fram");
-
-      }
-      setState(nextFrame);
+      // const explodableCells = nextFrame.filter(row => row.filter(cell => cell.items.length > cell.capacity).length).length > 0;
+      // if(explodableCells){
+      //   console.log("play audio, main fram");
+      //   explodeSound.currentTime = 0;
+      //   explodeSound.play();
+      // }
+      // setState(nextFrame);
       setAnimationQueue(states);
       setPlayer(nextPlayer);
   
@@ -419,11 +418,11 @@ const Game = () => {
       {/* This light makes things look pretty */}
       <ambientLight intensity={1} color="white" />
       {/* Our main source of light, also casting our shadow */}
-      <directionalLight
+      {/* <directionalLight
         castShadow
         position={[0, 10, 0]}
         intensity={1.5}
-      />
+      /> */}
       {/* A light to help illuminate the spinning boxes */}
       <pointLight position={[0, -10, 0]} intensity={1.5} color="red"/>
       <AtomContainer/>

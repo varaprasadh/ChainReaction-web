@@ -49,10 +49,6 @@ export const Grid = ({ args, rows = 5, columns = 5, color, onGridCellClick, posi
     }
   };
 
-  console.log({
-    cells: cells
-  })
-
   return (
     <group
       position={position}
