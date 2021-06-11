@@ -21,12 +21,10 @@ export const Grid = ({ args, rows = 5, columns = 5, color, onGridCellClick, posi
     return (
       <a.mesh
         position={position}
-        castShadow
         onClick={onGridCellClick}
         >
         <boxGeometry attach='geometry' args={args}/>
-        <meshPhongMaterial attach="material" wireframe={true} transparent={true} color="blue"/>
-        <meshBasicMaterial attach="material" />
+        <meshPhongMaterial visible={false} attach="material" transparent={true} color={"white"} reflectivity={1}/>
         {/* <colorMaterial  wireframe={true} attachArray="material" color="#A2CCB6" />
         <colorMaterial wireframe={true} attachArray="material" color="#A2CCB6" />
         <colorMaterial wireframe={true} attachArray="material" color="#A2CCB6" />
@@ -46,7 +44,7 @@ export const Grid = ({ args, rows = 5, columns = 5, color, onGridCellClick, posi
       const position = [x* CELL_WIDTH,y* CELL_HEIGHT,0]
       cells.push({
         position,
-        args: [CELL_WIDTH, CELL_HEIGHT, 0.2]
+        args: [CELL_WIDTH, CELL_HEIGHT, 0]
       });
     }
   };

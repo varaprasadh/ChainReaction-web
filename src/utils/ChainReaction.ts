@@ -241,6 +241,7 @@ export class ChainReaction{
             currentPosition: cell.position
         });
 
+        states.push(JSON.parse(JSON.stringify(prevState)));
 
         queue.push(cell);
         queue.push(null);
@@ -250,11 +251,9 @@ export class ChainReaction{
             
             levels += 1;
             if (levels > 10) {
-                // return same props declare the winner 
-                // check winner 
+                // probably this case will not arise, but to be make sure we don't go infinite
                 throw new Error("Max BFS Depth reached, stopping looping the queue")
             }
-            console.log("here... will it go infinite?")
             
             let cell = queue.shift();
             while(cell){

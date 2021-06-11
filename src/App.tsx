@@ -1,10 +1,13 @@
 // @ts-nocheck
 
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useRef, useState, useMemo } from "react";
 //R3F
-import { Canvas, useFrame, extend, useThree, ThreeEvent } from "@react-three/fiber";
+import { Canvas, useFrame, extend, useThree } from "@react-three/fiber";
 
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls";
+
+import { Stars } from "@react-three/drei";
+
 
 import * as THREE from "three";
 
@@ -22,7 +25,6 @@ import { useSpring, a } from "@react-spring/three";
 // Styles
 import './App.css';
 
-import { states } from "./utils/index";
 import ChainReaction from "./utils/ChainReaction";
 
 
@@ -83,14 +85,17 @@ const Sphere = ({ position, from, color, args = [0.2, 32, 32] }) => {
       const [x1, y1, z1] = from;
       const [x2, y2, z2] = position;
 
-  
       const diffX = (x2 - x1);
       const diffY = (y2 - y1);
       const dx = diffX / 10;
       const dy = diffY / 10;
 
-      mesh.current.position.set(x1, y1, z1);
+      console.log(mesh.current);
 
+      
+
+
+      mesh.current.position.set(x1, y1, z1 );
       let step = 0;
       // if(steps === 0) return;
       const timer = setInterval(() => {
@@ -138,11 +143,8 @@ const explodeSound = new Audio(bubbleAudio);
 const Compound = ({ cell }) => {
 
   const compound = useRef();
-
-  console.log("can i play", cell.items.length > cell.capacity , cell.items.length, cell.capacity);
   
   if (cell.items.length > cell.capacity) {
-    console.log("explode sound")
     explodeSound.currentTime = 0;
     explodeSound.play();
   }
@@ -202,9 +204,11 @@ const Compound = ({ cell }) => {
   // useEffect(() => {
   //   console.log("only running once"); 
   //   const timer = setTimeout(() => {
+  //     console.log("tureing timer");
   //     setRevolve(true);
   //   }, 600);
   //   return () => {
+  //     console.log("falsing timer");
   //     setRevolve(false);
   //     clearTimeout(timer);
   //   };
@@ -308,11 +312,11 @@ const AtomContainer = () => {
         let transitionDuration = 1000;
         const explodableCells = animationState.filter(row => row.filter(cell => cell.items.length > cell.capacity).length).length > 0;
         if (explodableCells){
-          transitionDuration = 500;
+          transitionDuration = 600;
+          console.log("play audio");
         };
 
         setTimeout(() => {
-          
           setState(animationState);
           setAnimationQueue([...animationQueue]);
         }, transitionDuration) 
@@ -327,10 +331,6 @@ const AtomContainer = () => {
   const resetGame = () => {
     console.log("is it happening")
     chainReaction.current.reset();
-    console.log({
-      wtf: [...chainReaction.current.board]
-    });
-
     setState([...chainReaction.current.board]);
   }
 
@@ -349,15 +349,19 @@ const AtomContainer = () => {
       } = result;
 
       const nextFrame = states.shift();
+      console.log({
+        states,
+        nextFrame
+      });
 
-      setState(nextFrame);
+      const explodableCells = nextFrame.filter(row => row.filter(cell => cell.items.length > cell.capacity).length).length > 0;
+      if(explodableCells){
+        console.log("play audio, main fram");
 
-      if(states.length){
-        setAnimationQueue(states);
       }
-
+      setState(nextFrame);
+      setAnimationQueue(states);
       setPlayer(nextPlayer);
-
   
       if (gameOver) {
         console.log(player.id, player.name);
@@ -403,49 +407,27 @@ const AtomContainer = () => {
   )
 } 
 
-const Game = () => {
 
+const Game = () => {
 
   return (
     <Canvas
-      colorManagement
-      shadowMap
-      camera={{ position: [10, 10, 50], fov: 60 }}>
+      camera={{ position: [10, -20, 30], fov: 60 }}>
       <axesHelper position={[0, 0, 0]} />
       {/* <gridHelper/> */}
       <CameraControls />
       {/* This light makes things look pretty */}
-      <ambientLight intensity={0.3} />
+      <ambientLight intensity={1} color="white" />
       {/* Our main source of light, also casting our shadow */}
       <directionalLight
         castShadow
         position={[0, 10, 0]}
         intensity={1.5}
-        shadow-mapSize-width={1024}
-        shadow-mapSize-height={1024}
-        shadow-camera-far={50}
-        shadow-camera-left={-10}
-        shadow-camera-right={10}
-        shadow-camera-top={10}
-        shadow-camera-bottom={-10}
       />
       {/* A light to help illuminate the spinning boxes */}
-      <pointLight position={[-10, 0, -20]} intensity={0.5} />
-      <pointLight position={[0, -10, 0]} intensity={1.5} />
-      <group>
-        {/* This mesh is the plane (The floor) */}
-        <mesh
-          rotation={[-Math.PI / 2, 0, 0]}
-          position={[0, -3, 0]}
-          receiveShadow>
-          <planeBufferGeometry attach='geometry' args={[100, 100]} />
-          <shadowMaterial attach='material' opacity={0.3} />
-        </mesh>
-        {/* <Sphere color="blue" position={[3,0, 0]} /> */}
-      </group>
+      <pointLight position={[0, -10, 0]} intensity={1.5} color="red"/>
       <AtomContainer/>
-      {/* <Grid color="red" position={[0, 0, 3]} rows={4} columns={4}/> */}
-      {/* <Sphere position={[0,0,0]} color="orange" from={[10,0,0]}/>   */}
+      <Stars/>
     </Canvas>
   )
 
