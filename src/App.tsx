@@ -16,10 +16,14 @@ import {
   joinRoom,
   orderedMoves,
   pushMove,
+  sendChat,
   startRoom,
+  subscribeChat,
   subscribeRoom,
+  type ChatMessage,
   type Room,
 } from './net/room';
+import { ChatPanel } from './components/ChatPanel';
 import './App.css';
 
 const EXPLODE_DURATION = 420;
@@ -311,10 +315,12 @@ function LocalGame({ config, onExit }: { config: GameConfig; onExit: () => void 
 function OnlineGame({
   room,
   mySeat,
+  myUid,
   onExit,
 }: {
   room: Room;
   mySeat: number;
+  myUid: string;
   onExit: () => void;
 }) {
   const { config } = room;
@@ -431,6 +437,26 @@ function OnlineGame({
       ? 'Your turn'
       : `Waiting for ${engine.currentPlayer().name}`;
 
+  const [chatMsgs, setChatMsgs] = useState<Array<ChatMessage & { id: string }>>([]);
+  useEffect(() => {
+    return subscribeChat(room.id, setChatMsgs);
+  }, [room.id]);
+
+  const myName = room.seats?.[mySeatId]?.name ?? 'Player';
+  const onSendChat = useCallback(
+    async (text: string) => {
+      const trimmed = text.trim();
+      if (!trimmed) return;
+      await sendChat(room.id, {
+        uid: myUid,
+        seat: mySeat,
+        name: myName,
+        text: trimmed.slice(0, 240),
+      });
+    },
+    [room.id, myUid, mySeat, myName],
+  );
+
   return (
     <div className="app" style={{ ['--accent' as string]: current.color }}>
       <Scene
@@ -453,6 +479,12 @@ function OnlineGame({
         onReset={onExit}
         mineId={mySeatId}
         statusText={statusText}
+      />
+      <ChatPanel
+        messages={chatMsgs}
+        players={engine.players}
+        myUid={myUid}
+        onSend={onSendChat}
       />
       {winner && (
         <WinnerModal
@@ -598,6 +630,7 @@ export default function App() {
         key={room.id}
         room={room}
         mySeat={mySeat}
+        myUid={uid ?? ''}
         onExit={exit}
       />
     );

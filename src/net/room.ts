@@ -136,3 +136,35 @@ export function orderedMoves(room: Room): MoveRecord[] {
     .sort()
     .map((k) => moves[k]);
 }
+
+export interface ChatMessage {
+  uid: string;
+  seat: number;
+  name: string;
+  text: string;
+  ts: number;
+}
+
+export async function sendChat(
+  id: string,
+  msg: Omit<ChatMessage, 'ts'>,
+): Promise<void> {
+  await push(ref(db, `rooms/${id}/chat`), { ...msg, ts: Date.now() });
+}
+
+export function subscribeChat(
+  id: string,
+  cb: (msgs: Array<ChatMessage & { id: string }>) => void,
+): () => void {
+  const chatRef = ref(db, `rooms/${id}/chat`);
+  const handler = onValue(chatRef, (snap) => {
+    const val = (snap.val() as Record<string, ChatMessage>) ?? {};
+    const items = Object.keys(val)
+      .sort()
+      .map((k) => ({ id: k, ...val[k] }));
+    cb(items);
+  });
+  return () => {
+    off(chatRef, 'value', handler);
+  };
+}
