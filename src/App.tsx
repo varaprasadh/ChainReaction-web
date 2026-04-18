@@ -1,429 +1,302 @@
-// @ts-nocheck
-
-import React, { useEffect, useRef, useState, useMemo } from "react";
-//R3F
-import { Canvas, useFrame, extend, useThree } from "@react-three/fiber";
-
-import { OrbitControls } from "three/examples/jsm/controls/OrbitControls";
-
-import { Stars } from "@react-three/drei";
-
-
-import * as THREE from "three";
-
-import "./components/three/ColorMaterial";
-import { Grid as BoxGrid } from "./components/Grid";
-
-import bubbleAudio from "./assets/audio/bubble.mp3";
-
-
-//Components
-
-// React Spring
-import { useSpring, a } from "@react-spring/three";
-
-// Styles
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Canvas, useThree } from '@react-three/fiber';
+import { OrbitControls, Stars } from '@react-three/drei';
+import { ChainReaction, type EngineSnapshot } from './game/engine';
+import type { Board as BoardT, Player } from './game/types';
+import { Board } from './components/Board';
+import { Atom, OFFSETS, cellToWorld } from './components/Atom';
+import { HUD } from './components/HUD';
+import { WinnerModal } from './components/WinnerModal';
+import { StartScreen } from './components/StartScreen';
+import bubbleAudio from './assets/audio/bubble.mp3';
 import './App.css';
 
-import ChainReaction from "./utils/ChainReaction";
+const EXPLODE_DURATION = 420;
+const PLACE_DURATION = 280;
 
+interface GameConfig {
+  players: number;
+  size: number;
+}
 
-// Extend will make OrbitControls available as a JSX element called orbitControls for us to use.
-extend({ OrbitControls });
-
-
-const CameraControls = () => {
-  // Get a reference to the Three.js Camera, and the canvas html element.
-  // We need these to setup the OrbitControls component.
-  // https://threejs.org/docs/#examples/en/controls/OrbitControls
-  const {
-    camera,
-    gl: { domElement },
-  } = useThree();
-  // Ref to the controls, so that we can update them on every frame using useFrame
-  const controls = useRef();
-  useFrame((state) => controls.current.update());
-  return <orbitControls ref={controls} args={[camera, domElement]} />;
-};
-
-const SpinningMesh = ({ position, color, speed, args }) => {
-  //ref to target the mesh
-  const mesh = useRef();
-
-  //useFrame allows us to re-render/update rotation on each frame
-  useFrame(() => (mesh.current.rotation.x = mesh.current.rotation.y += 0.01));
-
-  //Basic expand state
-  const [expand, setExpand] = useState(false);
-  // React spring expand animation
-  const props = useSpring({
-    scale: expand ? [1.4, 1.4, 1.4] : [1, 1, 1],
-  });
-
-  return (
-    <a.mesh
-      position={position}
-      ref={mesh}
-      onClick={() => setExpand(!expand)}
-      scale={props.scale}
-      castShadow>
-      <boxBufferGeometry attach='geometry' args={args} />
-      <meshStandardMaterial
-        color={color}
-        attach='material'
-      />
-    </a.mesh>
-  );
-};
-
-const Sphere = ({ position, from, color, args = [0.2, 32, 32] }) => {
-  const mesh = useRef();
-
+function CameraRig({ dim }: { dim: number }) {
+  const { camera, size } = useThree();
   useEffect(() => {
-    if (from) {
-
-      const [x1, y1, z1] = from;
-      const [x2, y2, z2] = position;
-
-      const diffX = (x2 - x1);
-      const diffY = (y2 - y1);
-      const dx = diffX / 10;
-      const dy = diffY / 10;
-
-      mesh.current.position.set(x1, y1, z1 );
-      let step = 0;
-
-      const timer = setInterval(() => {
-        if(!mesh.current) return clearInterval(timer);
-        mesh.current.position.x += dx;
-        mesh.current.position.y += dy;
-        step++;
-        if (step === 10) {
-          clearInterval(timer);
-        }
-      }, 20)
-      return () => clearInterval(timer)
-    }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
-
-
-  return (
-    <a.mesh
-      position={position}
-      castShadow
-      ref={mesh}
-    >
-      <sphereBufferGeometry attach="geometry" args={args} />
-      <meshPhongMaterial
-        attach='material'
-        color={color}
-        specular={0x050505}
-        shininess={80}
-      />
-    </a.mesh>
-  )
-};
-
-// compound  : group of atoms 
-// based on count arrange placement 
-
-const Compound = ({ cell }) => {
-
-  const compound = useRef();
-
-  const atom = cell.items.length && cell.items[0];
-
-  const [_x, _y, _z] = atom ? [atom.currentPosition.column*3, atom.currentPosition.row*3 , 0] : [0, 0, 0];
-
-  const atoms = cell.items.map(info => {
-    const prow = info.prevPosition.row;
-    const pcol = info.prevPosition.column;
-
-    return ({
-      ...info,
-      prevPosition: [pcol * 3 - _x, prow * 3 - _y, 0],
-      currentPosition: [0, 0, 0]
-    })
-  });
-
-
-
-  switch (atoms.length) {
-    case 2:
-      {
-        const [x, y, z] = atoms[0].currentPosition;
-        atoms[0].currentPosition = [x - 0.2, y, z];
-      }
-      {
-        const [x, y, z] = atoms[1].currentPosition;
-        atoms[1].currentPosition = [x + 0.1, y, z];
-      }
-      break;
-    case 3:
-      {
-        const [x, y, z] = atoms[0].currentPosition;
-        atoms[0].currentPosition = [x - 0.1, y - 0.25, z];
-      }
-      {
-        const [x, y, z] = atoms[1].currentPosition;
-        atoms[1].currentPosition = [x + 0.1, y - 0.25, z];
-      }
-      {
-        const [x, y, z] = atoms[1].currentPosition;
-        atoms[2].currentPosition = [x, y + 0.2, z];
-      }
-      break;
-  }
-
-  const [revolve, setRevolve] = useState(false);
-  useFrame(state => {
-    if (revolve) {
-      compound.current.rotation.x += 0.01;
-      compound.current.rotation.z += 0.05;
-    }
-  });
-
-  // useEffect(() => {
-  //   console.log("only running once"); 
-  //   const timer = setTimeout(() => {
-  //     console.log("tureing timer");
-  //     setRevolve(true);
-  //   }, 600);
-  //   return () => {
-  //     console.log("falsing timer");
-  //     setRevolve(false);
-  //     clearTimeout(timer);
-  //   };
-  // }, [cell.items]);
-  
-
-  return (
-    <group ref={compound} position={[_x, _y, _z]}>
-      {
-        atoms.map((atom, index) => (
-          <Sphere
-            key={atom.id}
-            color={cell.owner ? cell.owner.color: 'pink'}
-            position={atom.currentPosition}
-            from={atom.prevPosition}
-          />
-        ))
-      }
-    </group>
-  )
+    const aspect = size.width / Math.max(size.height, 1);
+    const narrow = aspect < 1;
+    const dist = narrow ? dim * 4.2 : dim * 3.2;
+    const lift = narrow ? dim * 1.4 : dim * 2.2;
+    camera.position.set(0, -lift, dist);
+    camera.lookAt(0, 0, 0);
+    camera.updateProjectionMatrix();
+  }, [camera, size.width, size.height, dim]);
+  return null;
 }
 
-
-
-const Grid = ({ args, rows = 5, columns = 5, color, position = [0, 0, 0], onGridCellClick }) => {
-
-
-  const GridCell = ({ position, args, color , onClick}) => {
-    const [cx, cy, cz] = position;
-    const [CELL_WIDTH, CELL_HEIGHT, depth] = args;
-
-    const points = [];
-    points.push(
-      new THREE.Vector3(cx - CELL_WIDTH / 2, cy - CELL_HEIGHT / 2, -1),
-      new THREE.Vector3(cx + CELL_WIDTH / 2, cy - CELL_HEIGHT / 2, -1),
-      new THREE.Vector3(cx + CELL_WIDTH / 2, cy + CELL_HEIGHT / 2, -1),
-      new THREE.Vector3(cx - CELL_WIDTH / 2, cy + CELL_HEIGHT / 2, -1),
-      new THREE.Vector3(cx - CELL_WIDTH / 2, cy - CELL_HEIGHT / 2, -1),
-    );
-
-    const lineGeometry = new THREE.BufferGeometry().setFromPoints(points);
-
-    return (
-      <group>
-      <line geometry={lineGeometry} >
-        <lineBasicMaterial attach="material" color={color} linewidth={2} linecap={'round'} linejoin={'round'} />
-      </line>
-      </group>
-    )
-  }
-  const CELL_WIDTH = 3;
-  const CELL_HEIGHT = 3;
-
-  const cells = [];
-
-  for (let y = 0, h = 0; y < rows; h += CELL_HEIGHT, y++) {
-    for (let x = 0, w = 0; x < columns; w += CELL_WIDTH, x++) {
-      const position = [x * CELL_WIDTH, y * CELL_HEIGHT, 0]
-      cells.push({
-        position,
-        args: [CELL_WIDTH, CELL_HEIGHT, 1]
-      });
-    }
-  };
-
-  return (
-      <group
-        position={position}
-        castShadow
-      >
-        {
-          cells.map(({ position, args }, index) => (
-            <GridCell 
-              key={index}
-              position={position} 
-              args={args} 
-              color={color}
-              onClick={onGridCellClick}
-            />
-          ))
-        }
-      </group>
-  )
-
-}
-
-
-const explodeSound = new Audio(bubbleAudio);
-
-const AtomContainer = () => {
-  const [state, setState] = useState([]);
-  const [player, setPlayer] = useState({}); // first player of the board 
-  const [animationQueue, setAnimationQueue] = useState([]);
-
-  const chainReaction = useRef(new ChainReaction({}, 2));
-
-  useEffect(()=>{
-    setPlayer(chainReaction.current.getCurrentPlayer());
-  }, []);
-
-  // handles animation queue 
-  useEffect(()=>{
-      let timer = null;
-
-      if (animationQueue.length ) {
-        const animationState = animationQueue.shift();
-        let transitionDuration = 1000;
-        const explodableState = animationState.filter(row => row.filter(cell => cell.items.length > cell.capacity).length).length > 0;
-        if (explodableState){
-          transitionDuration = 600;
-          explodeSound.currentTime = 0;
-          explodeSound.play();
-        };
-        if (animationQueue.length === 1) {
-          setState(animationState);
-          setAnimationQueue([...animationQueue]);
-        }else{
-          setState(animationState);
-          // setAnimationQueue([...animationQueue]);
-          timer = setTimeout(() => {
-            // setState(animationState);
-            setAnimationQueue([...animationQueue]);
-          }, transitionDuration)
-        }
-
-      };
-
-      return () => clearTimeout(timer);
-
-  }, [animationQueue])
-
-
-
-
-  const resetGame = () => {
-    console.log("is it happening")
-    chainReaction.current.reset();
-    setState([...chainReaction.current.board]);
-  }
-
-  const addAtom = ( event) => {
-    const { eventObject: { position } } = event;
-
-    try{
-      const result = chainReaction.current.nextState(chainReaction.current.board, { row: position.y / 3, column: position.x / 3 });
-
-      const {
-        states,   // transitions between first state to last state
-        board,    // final state of the board,ignore for now
-        gameOver, // name itself telling what it is,
-        player,    // the player who changed this current state of board
-        nextPlayer // next player 
-      } = result;
-
-
-      setAnimationQueue(states);
-      setPlayer(nextPlayer);
-  
-      if (gameOver) {
-        const Message = `"game over buddy winner is",${player.id}`
-        console.log(Message, player.id, player.name);
-        // setTimeout(() => {
-        //   // resetGame();
-        //   // alert(Message);
-        //   console.log("game is over");
-
-        // }, 1000)
+function Scene({
+  board,
+  rows,
+  cols,
+  current,
+  onCellClick,
+}: {
+  board: BoardT;
+  rows: number;
+  cols: number;
+  current: Player;
+  onCellClick: (row: number, col: number) => void;
+}) {
+  const atoms = useMemo(() => {
+    const out: Array<{
+      id: string;
+      color: string;
+      from: { row: number; col: number };
+      to: { row: number; col: number };
+      offset: [number, number, number];
+      exploding: boolean;
+      spin: boolean;
+      axis: [number, number, number];
+    }> = [];
+    for (const row of board) {
+      for (const cell of row) {
+        const count = cell.atoms.length;
+        const offs = OFFSETS[Math.min(count, 4)] ?? OFFSETS[3];
+        const spin = count >= 2;
+        const seed = cell.position.row * 31 + cell.position.col * 17 + 3;
+        let ax = Math.sin(seed * 0.73);
+        let ay = Math.cos(seed * 0.41) * 0.8;
+        let az = Math.sin(seed * 1.17) + 0.4;
+        const len = Math.hypot(ax, ay, az) || 1;
+        const axis: [number, number, number] = [ax / len, ay / len, az / len];
+        cell.atoms.forEach((atom, i) => {
+          out.push({
+            id: atom.id,
+            color: cell.owner?.color ?? '#ffffff',
+            from: atom.prevPos,
+            to: atom.currPos,
+            offset: offs[i % offs.length],
+            exploding: !!cell.exploded,
+            spin,
+            axis,
+          });
+        });
       }
-    }catch(error){
-      console.error(error);
     }
+    return out;
+  }, [board]);
 
-  }
-
-  useFrame(()=>{
-      
-  });
-
-
-
-  return (
-   <>
-      {
-        state.map((row, r) => row.map((cell, c) => (
-          <Compound key={cell.id} cell={cell} />
-        )))
-      }
-      <Grid
-        color={player.color || "#aef7fc"}
-        rows={4}
-        columns={4}
-      />
-      <BoxGrid
-        rows={4}
-        columns={4}
-        onGridCellClick={e =>addAtom(e)}
-        position={[0, 0, -2]}
-      />
-   </>
-  )
-} 
-
-
-const Game = () => {
+  const cx = ((cols - 1) * 3) / 2;
+  const cy = ((rows - 1) * 3) / 2;
+  const dim = Math.max(rows, cols);
 
   return (
     <Canvas
-      camera={{ position: [10, -20, 30], fov: 60 }}>
-      <axesHelper position={[0, 0, 0]} />
-      {/* <gridHelper/> */}
-      <CameraControls />
-      {/* This light makes things look pretty */}
-      <ambientLight intensity={1} color="white" />
-      {/* Our main source of light, also casting our shadow */}
-      {/* <directionalLight
-        castShadow
-        position={[0, 10, 0]}
-        intensity={1.5}
-      /> */}
-      {/* A light to help illuminate the spinning boxes */}
-      <pointLight position={[0, -10, 0]} intensity={1.5} color="red"/>
-      <AtomContainer/>
-      <Stars/>
+      camera={{
+        position: [0, -dim * 2.2, dim * 3.2],
+        fov: 50,
+      }}
+      dpr={[1, 2]}
+    >
+      <color attach="background" args={['#05060f']} />
+      <ambientLight intensity={0.18} />
+      <directionalLight position={[6, 8, 10]} intensity={1.4} color="#ffffff" />
+      <pointLight position={[-8, -6, 6]} intensity={0.6} color="#6ea8ff" />
+      <pointLight position={[0, 0, -6]} intensity={0.35} color={current.color} />
+      <CameraRig dim={dim} />
+      <OrbitControls
+        target={[0, 0, 0]}
+        enablePan={false}
+        minDistance={dim * 1.5}
+        maxDistance={dim * 6}
+        maxPolarAngle={Math.PI * 0.85}
+      />
+      <Stars radius={80} depth={40} count={1500} factor={3} fade />
+      <group position={[-cx, -cy, 0]}>
+        <Board rows={rows} cols={cols} color={current.color} onCellClick={onCellClick} />
+        {atoms.map((a) => (
+          <Atom
+            key={a.id}
+            color={a.color}
+            from={a.from}
+            to={a.to}
+            offset={a.offset}
+            exploding={a.exploding}
+            spin={a.spin}
+            axis={a.axis}
+          />
+        ))}
+      </group>
     </Canvas>
-  )
-
-
+  );
 }
-function App() {
+
+function Game({ config, onExit }: { config: GameConfig; onExit: () => void }) {
+  const engineRef = useRef<ChainReaction | null>(null);
+  if (!engineRef.current) {
+    engineRef.current = new ChainReaction({
+      rows: config.size,
+      cols: config.size,
+      players: config.players,
+    });
+  }
+  const engine = engineRef.current;
+
+  const [board, setBoard] = useState<BoardT>(() =>
+    JSON.parse(JSON.stringify(engine.board)) as BoardT,
+  );
+  const [current, setCurrent] = useState<Player>(() => engine.currentPlayer());
+  const [winner, setWinner] = useState<Player | null>(null);
+  const [eliminated, setEliminated] = useState<Set<string>>(new Set());
+  const [busy, setBusy] = useState(false);
+
+  const historyRef = useRef<EngineSnapshot[]>([engine.snapshot()]);
+  const [cursor, setCursor] = useState(0);
+  const canUndo = cursor > 0 && !busy && !winner;
+  const canRedo = cursor < historyRef.current.length - 1 && !busy && !winner;
+
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+  useEffect(() => {
+    audioRef.current = new Audio(bubbleAudio);
+    audioRef.current.volume = 0.4;
+  }, []);
+
+  const playPop = useCallback(() => {
+    const a = audioRef.current;
+    if (!a) return;
+    a.currentTime = 0;
+    void a.play().catch(() => {});
+  }, []);
+
+  const counts = useMemo(() => {
+    const m = new Map<string, number>();
+    for (const row of board) {
+      for (const cell of row) {
+        if (cell.owner) m.set(cell.owner.id, (m.get(cell.owner.id) ?? 0) + cell.atoms.length);
+      }
+    }
+    return m;
+  }, [board]);
+
+  const runStates = useCallback(
+    async (states: BoardT[], finalWinner: Player | null, nextPlayer: Player, elim: Set<string>) => {
+      setBusy(true);
+      for (let i = 0; i < states.length; i++) {
+        setBoard(states[i]);
+        const hasExplode = states[i].some((row) => row.some((c) => c.exploded));
+        playPop();
+        await new Promise((r) => setTimeout(r, hasExplode ? EXPLODE_DURATION : PLACE_DURATION));
+      }
+      setEliminated(new Set(elim));
+      if (finalWinner) setWinner(finalWinner);
+      else setCurrent(nextPlayer);
+      setBusy(false);
+    },
+    [playPop],
+  );
+
+  const handleClick = useCallback(
+    (row: number, col: number) => {
+      if (busy || winner) return;
+      try {
+        const res = engine.place({ row, col });
+        const elim = new Set(engine.eliminated);
+        historyRef.current = historyRef.current.slice(0, cursor + 1);
+        historyRef.current.push(engine.snapshot());
+        setCursor(historyRef.current.length - 1);
+        void runStates(res.states, res.winner, res.nextPlayer, elim);
+      } catch {
+        /* invalid move */
+      }
+    },
+    [busy, winner, engine, runStates, cursor],
+  );
+
+  const jumpTo = useCallback(
+    (idx: number) => {
+      if (idx < 0 || idx >= historyRef.current.length) return;
+      const snap = historyRef.current[idx];
+      engine.restore(snap);
+      setBoard(JSON.parse(JSON.stringify(engine.board)) as BoardT);
+      setCurrent(engine.currentPlayer());
+      setEliminated(new Set(engine.eliminated));
+      setWinner(null);
+      setCursor(idx);
+    },
+    [engine],
+  );
+
+  const undo = useCallback(() => {
+    if (!canUndo) return;
+    jumpTo(cursor - 1);
+  }, [canUndo, cursor, jumpTo]);
+
+  const redo = useCallback(() => {
+    if (!canRedo) return;
+    jumpTo(cursor + 1);
+  }, [canRedo, cursor, jumpTo]);
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      const mod = e.metaKey || e.ctrlKey;
+      if (!mod) return;
+      if (e.key.toLowerCase() === 'z') {
+        e.preventDefault();
+        if (e.shiftKey) redo();
+        else undo();
+      } else if (e.key.toLowerCase() === 'y') {
+        e.preventDefault();
+        redo();
+      }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [undo, redo]);
+
+  const reset = useCallback(() => {
+    engine.reset();
+    historyRef.current = [engine.snapshot()];
+    setCursor(0);
+    setBoard(JSON.parse(JSON.stringify(engine.board)) as BoardT);
+    setCurrent(engine.currentPlayer());
+    setEliminated(new Set());
+    setWinner(null);
+    setBusy(false);
+  }, [engine]);
+
   return (
-    <Game />
-  )
+    <div className="app" style={{ ['--accent' as string]: current.color }}>
+      <Scene
+        board={board}
+        rows={config.size}
+        cols={config.size}
+        current={current}
+        onCellClick={handleClick}
+      />
+      <HUD
+        players={engine.players}
+        current={current}
+        counts={counts}
+        eliminated={eliminated}
+        canUndo={canUndo}
+        canRedo={canRedo}
+        onUndo={undo}
+        onRedo={redo}
+        onReset={onExit}
+      />
+      {winner && <WinnerModal winner={winner} onPlayAgain={reset} />}
+    </div>
+  );
 }
 
-export default App;
+export default function App() {
+  const [config, setConfig] = useState<GameConfig | null>(null);
+  return config ? (
+    <Game
+      key={`${config.players}-${config.size}`}
+      config={config}
+      onExit={() => setConfig(null)}
+    />
+  ) : (
+    <StartScreen onStart={(players, size) => setConfig({ players, size })} />
+  );
+}

@@ -1,55 +1,27 @@
 {
-  "name": "my-app",
-  "version": "0.1.0",
+  "name": "chain-reaction-web",
   "private": true,
-  "dependencies": {
-    "@react-three/drei": "^6.0.2",
-    "@testing-library/jest-dom": "^5.11.4",
-    "@testing-library/react": "^11.1.0",
-    "@testing-library/user-event": "^12.1.10",
-    "@types/jest": "^26.0.15",
-    "@types/node": "^12.0.0",
-    "@types/react": "^17.0.0",
-    "@types/react-dom": "^17.0.0",
-    "drei": "^2.2.21",
-    "react": "^17.0.2",
-    "react-dom": "^17.0.2",
-    "react-motion": "^0.5.2",
-    "react-scripts": "4.0.3",
-    "react-spring": "^9.2.1",
-    "react-three": "^0.9.7",
-    "react-three-fiber": "^6.0.13",
-    "three": "^0.129.0",
-    "typescript": "^4.1.2",
-    "uuid": "^8.3.2",
-    "web-vitals": "^1.0.1"
-  },
+  "version": "0.2.0",
+  "type": "module",
   "scripts": {
-    "start": "react-scripts start",
-    "build": "react-scripts build",
-    "test": "react-scripts test",
-    "eject": "react-scripts eject"
+    "dev": "vite",
+    "build": "tsc -b && vite build",
+    "preview": "vite preview"
   },
-  "eslintConfig": {
-    "extends": [
-      "react-app",
-      "react-app/jest"
-    ]
-  },
-  "browserslist": {
-    "production": [
-      ">0.2%",
-      "not dead",
-      "not op_mini all"
-    ],
-    "development": [
-      "last 1 chrome version",
-      "last 1 firefox version",
-      "last 1 safari version"
-    ]
+  "dependencies": {
+    "@react-spring/three": "^9.7.5",
+    "@react-three/drei": "^9.114.3",
+    "@react-three/fiber": "^8.17.10",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "three": "^0.169.0"
   },
   "devDependencies": {
-    "@types/react-motion": "0.0.29",
-    "@types/three": "^0.129.1"
+    "@types/react": "^18.3.12",
+    "@types/react-dom": "^18.3.1",
+    "@types/three": "^0.169.0",
+    "@vitejs/plugin-react": "^4.3.3",
+    "typescript": "^5.6.3",
+    "vite": "^5.4.10"
   }
 }
