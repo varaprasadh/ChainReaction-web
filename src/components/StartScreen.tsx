@@ -45,15 +45,15 @@ export function StartScreen({
 
         <div className="field">
           <label>Mode</label>
-          <div className="pill-row">
+          <div className="segmented">
             <button
-              className={`pill${mode === 'local' ? ' active' : ''}`}
+              className={`seg${mode === 'local' ? ' active' : ''}`}
               onClick={() => setMode('local')}
             >
               Local
             </button>
             <button
-              className={`pill${mode === 'online' ? ' active' : ''}`}
+              className={`seg${mode === 'online' ? ' active' : ''}`}
               onClick={() => setMode('online')}
             >
               Online
@@ -75,15 +75,15 @@ export function StartScreen({
             </div>
             <div className="field">
               <label>Room</label>
-              <div className="pill-row">
+              <div className="segmented">
                 <button
-                  className={`pill${action === 'create' ? ' active' : ''}`}
+                  className={`seg${action === 'create' ? ' active' : ''}`}
                   onClick={() => setAction('create')}
                 >
                   Create
                 </button>
                 <button
-                  className={`pill${action === 'join' ? ' active' : ''}`}
+                  className={`seg${action === 'join' ? ' active' : ''}`}
                   onClick={() => setAction('join')}
                 >
                   Join

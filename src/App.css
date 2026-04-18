@@ -331,16 +331,61 @@ canvas {
 }
 
 .start-btn {
-  background: #fff !important;
-  color: #05060f !important;
+  background: linear-gradient(135deg, #ff3b6b 0%, #c477ff 55%, #4dd0ff 100%) !important;
+  color: #fff !important;
   width: 100%;
-  padding: 12px !important;
+  padding: 13px !important;
   margin-top: 8px;
+  font-weight: 700 !important;
+  letter-spacing: 0.14em !important;
+  box-shadow: 0 10px 28px rgba(196, 119, 255, 0.28), 0 0 0 1px rgba(255, 255, 255, 0.08) inset;
+  transition: transform 0.15s ease, box-shadow 0.2s ease, filter 0.2s ease !important;
+}
+
+.start-btn:hover:not(:disabled) {
+  transform: translateY(-2px);
+  filter: brightness(1.08);
+  box-shadow: 0 14px 36px rgba(196, 119, 255, 0.4), 0 0 0 1px rgba(255, 255, 255, 0.12) inset;
 }
 
 .start-btn:disabled {
   opacity: 0.45;
   cursor: not-allowed;
+  filter: grayscale(0.4);
+}
+
+.segmented {
+  display: flex;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 12px;
+  padding: 3px;
+  gap: 2px;
+}
+
+.seg {
+  flex: 1;
+  background: transparent;
+  border: none;
+  color: #b8bcdb;
+  padding: 8px 14px;
+  border-radius: 9px;
+  font-size: 13px;
+  font-weight: 500;
+  letter-spacing: 0.04em;
+  transition: all 0.2s ease;
+}
+
+.seg:hover:not(.active) {
+  color: #fff;
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.seg.active {
+  background: rgba(255, 255, 255, 0.95);
+  color: #05060f;
+  font-weight: 600;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.35);
 }
 
 .text-input {
