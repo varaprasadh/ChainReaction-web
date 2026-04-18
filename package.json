@@ -7,7 +7,7 @@
     "dev": "vite",
     "build": "tsc -b && vite build",
     "preview": "vite preview",
-    "deploy": "npm run build && firebase deploy --only hosting:chain-reaction3d"
+    "deploy": "npm run build && npx -y firebase-tools deploy --only hosting:chain-reaction3d"
   },
   "dependencies": {
     "@react-spring/three": "^9.7.5",

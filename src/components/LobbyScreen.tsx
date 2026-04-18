@@ -63,13 +63,13 @@ export function LobbyScreen({ room, uid, shareUrl, canStart, onStart, onLeave }:
 
         <div className="share-row">
           <input className="share-input" readOnly value={shareUrl} onFocus={(e) => e.target.select()} />
-          <button className="pill" onClick={copy}>
-            {copied ? 'Copied' : 'Copy'}
+          <button className={`copy-btn${copied ? ' success' : ''}`} onClick={copy}>
+            {copied ? '✓ Copied' : 'Copy'}
           </button>
         </div>
 
         <div className="lobby-actions">
-          <button className="pill" onClick={onLeave}>
+          <button className="ghost-btn danger" onClick={onLeave}>
             Leave
           </button>
           {canStart && (

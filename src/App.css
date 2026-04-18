@@ -434,6 +434,58 @@ canvas {
   min-width: 0;
 }
 
+.copy-btn {
+  background: #c7cbe8;
+  color: #05060f;
+  border: none;
+  padding: 0 16px;
+  border-radius: 10px;
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  transition: background 0.15s ease, transform 0.15s ease;
+}
+
+.copy-btn:hover {
+  background: #fff;
+  transform: translateY(-1px);
+}
+
+.copy-btn.success {
+  background: #66e07a;
+  color: #05060f;
+}
+
+.ghost-btn {
+  background: transparent;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  color: #b8bcdb;
+  padding: 10px 18px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 500;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  transition: all 0.15s ease;
+}
+
+.ghost-btn:hover {
+  background: rgba(255, 255, 255, 0.06);
+  color: #fff;
+}
+
+.ghost-btn.danger {
+  border-color: rgba(255, 90, 110, 0.4);
+  color: #ffa5b2;
+}
+
+.ghost-btn.danger:hover {
+  background: rgba(255, 80, 100, 0.12);
+  border-color: rgba(255, 90, 110, 0.7);
+  color: #ffd1d8;
+}
+
 .lobby-actions {
   display: flex;
   gap: 10px;
