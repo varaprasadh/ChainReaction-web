@@ -11,10 +11,15 @@ interface Props {
 
 const EMOJIS = ['🔥', '💥', '😂', '👏', '😭', '🎉', '🧠', '🫠'];
 
+const TOAST_DURATION = 4200;
+const MAX_TOASTS = 3;
+
 export function ChatPanel({ messages, players, myUid, onSend }: Props) {
   const [open, setOpen] = useState(false);
   const [text, setText] = useState('');
   const [seen, setSeen] = useState<number>(() => messages.length);
+  const [toasts, setToasts] = useState<Array<{ key: string; msgId: string; text: string; name: string; seat: number }>>([]);
+  const prevCountRef = useRef<number>(messages.length);
   const listRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -25,7 +30,33 @@ export function ChatPanel({ messages, players, myUid, onSend }: Props) {
   }, [messages, open]);
 
   useEffect(() => {
-    if (open) inputRef.current?.focus();
+    const prev = prevCountRef.current;
+    if (messages.length > prev && !open) {
+      const fresh = messages.slice(prev).filter((m) => m.uid !== myUid);
+      if (fresh.length > 0) {
+        const added = fresh.map((m) => ({
+          key: `${m.id}-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+          msgId: m.id,
+          text: m.text,
+          name: m.name,
+          seat: m.seat,
+        }));
+        setToasts((curr) => [...curr, ...added].slice(-MAX_TOASTS));
+        for (const t of added) {
+          window.setTimeout(() => {
+            setToasts((curr) => curr.filter((x) => x.key !== t.key));
+          }, TOAST_DURATION);
+        }
+      }
+    }
+    prevCountRef.current = messages.length;
+  }, [messages, open, myUid]);
+
+  useEffect(() => {
+    if (open) {
+      inputRef.current?.focus();
+      setToasts([]);
+    }
   }, [open]);
 
   const unread = open ? 0 : Math.max(0, messages.length - seen);
@@ -47,10 +78,27 @@ export function ChatPanel({ messages, players, myUid, onSend }: Props) {
 
   if (!open) {
     return (
-      <button className="chat-fab" onClick={() => setOpen(true)} title="Open chat">
-        💬
-        {unread > 0 && <span className="chat-badge">{unread > 9 ? '9+' : unread}</span>}
-      </button>
+      <>
+        <div className="chat-toasts">
+          {toasts.map((t) => (
+            <button
+              key={t.key}
+              className="chat-toast"
+              style={{ ['--c' as string]: colorFor(t.seat) }}
+              onClick={() => setOpen(true)}
+            >
+              <span className="chat-toast-name" style={{ color: colorFor(t.seat) }}>
+                {t.name}
+              </span>
+              <span className="chat-toast-text">{t.text}</span>
+            </button>
+          ))}
+        </div>
+        <button className="chat-fab" onClick={() => setOpen(true)} title="Open chat">
+          💬
+          {unread > 0 && <span className="chat-badge">{unread > 9 ? '9+' : unread}</span>}
+        </button>
+      </>
     );
   }
 

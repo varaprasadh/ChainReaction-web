@@ -898,6 +898,84 @@ canvas {
   }
 }
 
+.chat-toasts {
+  position: absolute;
+  right: max(18px, env(safe-area-inset-right));
+  bottom: calc(max(18px, env(safe-area-inset-bottom)) + 64px);
+  display: flex;
+  flex-direction: column-reverse;
+  gap: 8px;
+  z-index: 14;
+  pointer-events: none;
+  max-width: 280px;
+}
+
+.chat-toast {
+  pointer-events: auto;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  background: rgba(10, 12, 26, 0.92);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-left: 3px solid var(--c);
+  color: #f4f5fa;
+  padding: 8px 12px;
+  border-radius: 12px;
+  font-size: 13px;
+  text-align: left;
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.45);
+  backdrop-filter: blur(8px);
+  cursor: pointer;
+  max-width: 100%;
+  animation: toast-in 0.25s cubic-bezier(0.2, 0.9, 0.3, 1.3) both,
+    toast-out 0.4s ease 3.8s both;
+}
+
+.chat-toast-name {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+}
+
+.chat-toast-text {
+  line-height: 1.35;
+  word-wrap: break-word;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  max-width: 100%;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+@keyframes toast-in {
+  from {
+    opacity: 0;
+    transform: translateX(16px) scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0) scale(1);
+  }
+}
+
+@keyframes toast-out {
+  to {
+    opacity: 0;
+    transform: translateX(12px);
+  }
+}
+
+@media (max-width: 640px) {
+  .chat-toasts {
+    right: max(10px, env(safe-area-inset-right));
+    bottom: calc(max(10px, env(safe-area-inset-bottom)) + 58px);
+    max-width: 70%;
+  }
+}
+
 .error-toast {
   position: absolute;
   bottom: 24px;
