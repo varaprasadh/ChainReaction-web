@@ -389,12 +389,16 @@ canvas {
 .pill {
   background: rgba(255, 255, 255, 0.08);
   border: 1.5px solid rgba(255, 255, 255, 0.55);
-  color: #ffffff;
+  color: #ffffff !important;
   padding: 7px 14px;
   border-radius: 999px;
   font-size: 13px;
   font-weight: 600;
   transition: all 0.15s ease;
+}
+
+.pill.active {
+  color: #05060f !important;
 }
 
 .pill:hover {
@@ -404,7 +408,6 @@ canvas {
 
 .pill.active {
   background: #fff;
-  color: #05060f;
   border-color: #fff;
   font-weight: 700;
 }
@@ -445,13 +448,17 @@ canvas {
   flex: 1;
   background: transparent;
   border: none;
-  color: #ffffff;
+  color: #ffffff !important;
   padding: 8px 14px;
   border-radius: 9px;
   font-size: 13px;
   font-weight: 600;
   letter-spacing: 0.04em;
   transition: all 0.2s ease;
+}
+
+.seg.active {
+  color: #05060f !important;
 }
 
 .seg:hover:not(.active) {
@@ -461,7 +468,6 @@ canvas {
 
 .seg.active {
   background: #fff;
-  color: #05060f;
   font-weight: 600;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.35);
 }
