@@ -387,8 +387,8 @@ canvas {
 }
 
 .pill {
-  background: rgba(255, 255, 255, 0.12);
-  border: 1px solid rgba(255, 255, 255, 0.45);
+  background: rgba(255, 255, 255, 0.08);
+  border: 1.5px solid rgba(255, 255, 255, 0.55);
   color: #ffffff;
   padding: 7px 14px;
   border-radius: 999px;
@@ -398,15 +398,15 @@ canvas {
 }
 
 .pill:hover {
-  background: rgba(255, 255, 255, 0.22);
-  border-color: rgba(255, 255, 255, 0.6);
+  background: rgba(255, 255, 255, 0.18);
+  border-color: #ffffff;
 }
 
 .pill.active {
   background: #fff;
   color: #05060f;
   border-color: #fff;
-  font-weight: 600;
+  font-weight: 700;
 }
 
 .start-btn {
@@ -434,8 +434,8 @@ canvas {
 
 .segmented {
   display: flex;
-  background: rgba(255, 255, 255, 0.08);
-  border: 1px solid rgba(255, 255, 255, 0.2);
+  background: rgba(255, 255, 255, 0.05);
+  border: 1.5px solid rgba(255, 255, 255, 0.45);
   border-radius: 12px;
   padding: 3px;
   gap: 2px;
