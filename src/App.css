@@ -387,47 +387,49 @@ canvas {
 }
 
 .pill {
-  background: rgba(255, 255, 255, 0.04);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  color: #c7cbe8;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  color: #e3e6f3;
   padding: 7px 14px;
   border-radius: 999px;
   font-size: 13px;
+  font-weight: 500;
   transition: all 0.15s ease;
 }
 
 .pill:hover {
-  background: rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.14);
+  border-color: rgba(255, 255, 255, 0.35);
 }
 
 .pill.active {
   background: #fff;
   color: #05060f;
   border-color: #fff;
+  font-weight: 600;
 }
 
 .start-btn {
-  background: linear-gradient(135deg, #ff3b6b 0%, #c477ff 55%, #4dd0ff 100%) !important;
-  color: #fff !important;
+  background: #ffffff !important;
+  color: #05060f !important;
   width: 100%;
   padding: 13px !important;
   margin-top: 8px;
   font-weight: 700 !important;
   letter-spacing: 0.14em !important;
-  box-shadow: 0 10px 28px rgba(196, 119, 255, 0.28), 0 0 0 1px rgba(255, 255, 255, 0.08) inset;
-  transition: transform 0.15s ease, box-shadow 0.2s ease, filter 0.2s ease !important;
+  box-shadow: 0 8px 22px rgba(0, 0, 0, 0.4);
+  transition: transform 0.15s ease, box-shadow 0.2s ease, background 0.2s ease !important;
 }
 
 .start-btn:hover:not(:disabled) {
   transform: translateY(-2px);
-  filter: brightness(1.08);
-  box-shadow: 0 14px 36px rgba(196, 119, 255, 0.4), 0 0 0 1px rgba(255, 255, 255, 0.12) inset;
+  background: #f2f4ff !important;
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.5);
 }
 
 .start-btn:disabled {
   opacity: 0.45;
   cursor: not-allowed;
-  filter: grayscale(0.4);
 }
 
 .segmented {
@@ -443,7 +445,7 @@ canvas {
   flex: 1;
   background: transparent;
   border: none;
-  color: #b8bcdb;
+  color: #d0d3e9;
   padding: 8px 14px;
   border-radius: 9px;
   font-size: 13px;
@@ -454,11 +456,11 @@ canvas {
 
 .seg:hover:not(.active) {
   color: #fff;
-  background: rgba(255, 255, 255, 0.05);
+  background: rgba(255, 255, 255, 0.08);
 }
 
 .seg.active {
-  background: rgba(255, 255, 255, 0.95);
+  background: #fff;
   color: #05060f;
   font-weight: 600;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.35);
