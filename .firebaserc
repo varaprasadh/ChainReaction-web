@@ -1,0 +1,12 @@
+{
+  "projects": {
+    "default": "thatserver"
+  },
+  "targets": {
+    "thatserver": {
+      "hosting": {
+        "chain-reaction3d": ["chain-reaction3d"]
+      }
+    }
+  }
+}

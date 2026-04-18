@@ -8,7 +8,18 @@ import { Atom, OFFSETS, cellToWorld } from './components/Atom';
 import { HUD } from './components/HUD';
 import { WinnerModal } from './components/WinnerModal';
 import { StartScreen } from './components/StartScreen';
+import { LobbyScreen } from './components/LobbyScreen';
 import bubbleAudio from './assets/audio/bubble.mp3';
+import { ensureAuth } from './net/firebase';
+import {
+  createRoom,
+  joinRoom,
+  orderedMoves,
+  pushMove,
+  startRoom,
+  subscribeRoom,
+  type Room,
+} from './net/room';
 import './App.css';
 
 const EXPLODE_DURATION = 420;
@@ -130,7 +141,21 @@ function Scene({
   );
 }
 
-function Game({ config, onExit }: { config: GameConfig; onExit: () => void }) {
+function useAudioPop() {
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+  useEffect(() => {
+    audioRef.current = new Audio(bubbleAudio);
+    audioRef.current.volume = 0.4;
+  }, []);
+  return useCallback(() => {
+    const a = audioRef.current;
+    if (!a) return;
+    a.currentTime = 0;
+    void a.play().catch(() => {});
+  }, []);
+}
+
+function LocalGame({ config, onExit }: { config: GameConfig; onExit: () => void }) {
   const engineRef = useRef<ChainReaction | null>(null);
   if (!engineRef.current) {
     engineRef.current = new ChainReaction({
@@ -154,18 +179,7 @@ function Game({ config, onExit }: { config: GameConfig; onExit: () => void }) {
   const canUndo = cursor > 0 && !busy && !winner;
   const canRedo = cursor < historyRef.current.length - 1 && !busy && !winner;
 
-  const audioRef = useRef<HTMLAudioElement | null>(null);
-  useEffect(() => {
-    audioRef.current = new Audio(bubbleAudio);
-    audioRef.current.volume = 0.4;
-  }, []);
-
-  const playPop = useCallback(() => {
-    const a = audioRef.current;
-    if (!a) return;
-    a.currentTime = 0;
-    void a.play().catch(() => {});
-  }, []);
+  const playPop = useAudioPop();
 
   const counts = useMemo(() => {
     const m = new Map<string, number>();
@@ -205,7 +219,7 @@ function Game({ config, onExit }: { config: GameConfig; onExit: () => void }) {
         setCursor(historyRef.current.length - 1);
         void runStates(res.states, res.winner, res.nextPlayer, elim);
       } catch {
-        /* invalid move */
+        /* invalid */
       }
     },
     [busy, winner, engine, runStates, cursor],
@@ -226,13 +240,10 @@ function Game({ config, onExit }: { config: GameConfig; onExit: () => void }) {
   );
 
   const undo = useCallback(() => {
-    if (!canUndo) return;
-    jumpTo(cursor - 1);
+    if (canUndo) jumpTo(cursor - 1);
   }, [canUndo, cursor, jumpTo]);
-
   const redo = useCallback(() => {
-    if (!canRedo) return;
-    jumpTo(cursor + 1);
+    if (canRedo) jumpTo(cursor + 1);
   }, [canRedo, cursor, jumpTo]);
 
   useEffect(() => {
@@ -252,7 +263,7 @@ function Game({ config, onExit }: { config: GameConfig; onExit: () => void }) {
     return () => window.removeEventListener('keydown', onKey);
   }, [undo, redo]);
 
-  const reset = useCallback(() => {
+  const playAgain = useCallback(() => {
     engine.reset();
     historyRef.current = [engine.snapshot()];
     setCursor(0);
@@ -283,20 +294,305 @@ function Game({ config, onExit }: { config: GameConfig; onExit: () => void }) {
         onRedo={redo}
         onReset={onExit}
       />
-      {winner && <WinnerModal winner={winner} onPlayAgain={reset} />}
+      {winner && <WinnerModal winner={winner} onPlayAgain={playAgain} />}
     </div>
   );
 }
 
+function OnlineGame({
+  room,
+  mySeat,
+  onExit,
+}: {
+  room: Room;
+  mySeat: number;
+  onExit: () => void;
+}) {
+  const { config } = room;
+  const engineRef = useRef<ChainReaction | null>(null);
+  if (!engineRef.current) {
+    engineRef.current = new ChainReaction({
+      rows: config.rows,
+      cols: config.cols,
+      players: config.players,
+    });
+  }
+  const engine = engineRef.current;
+
+  for (let i = 0; i < config.players; i++) {
+    const seat = room.seats?.[String(i)];
+    if (seat?.name) engine.players[i] = { ...engine.players[i], name: seat.name };
+  }
+
+  const [board, setBoard] = useState<BoardT>(() =>
+    JSON.parse(JSON.stringify(engine.board)) as BoardT,
+  );
+  const [current, setCurrent] = useState<Player>(() => engine.currentPlayer());
+  const [winner, setWinner] = useState<Player | null>(null);
+  const [eliminated, setEliminated] = useState<Set<string>>(new Set());
+  const [busy, setBusy] = useState(false);
+  const appliedRef = useRef(0);
+  const didInitRef = useRef(false);
+  const playPop = useAudioPop();
+
+  const counts = useMemo(() => {
+    const m = new Map<string, number>();
+    for (const row of board) {
+      for (const cell of row) {
+        if (cell.owner) m.set(cell.owner.id, (m.get(cell.owner.id) ?? 0) + cell.atoms.length);
+      }
+    }
+    return m;
+  }, [board]);
+
+  useEffect(() => {
+    const moves = orderedMoves(room);
+    let cancelled = false;
+
+    async function replay() {
+      if (moves.length < appliedRef.current) return;
+
+      // initial catch-up: apply all moves instantly
+      if (!didInitRef.current) {
+        for (let i = 0; i < moves.length; i++) {
+          try {
+            engine.place({ row: moves[i].row, col: moves[i].col });
+          } catch {
+            /* invalid, skip */
+          }
+        }
+        appliedRef.current = moves.length;
+        didInitRef.current = true;
+        setBoard(JSON.parse(JSON.stringify(engine.board)) as BoardT);
+        setCurrent(engine.currentPlayer());
+        setEliminated(new Set(engine.eliminated));
+        return;
+      }
+
+      // animate each new move
+      setBusy(true);
+      for (let i = appliedRef.current; i < moves.length; i++) {
+        if (cancelled) break;
+        try {
+          const res = engine.place({ row: moves[i].row, col: moves[i].col });
+          for (let s = 0; s < res.states.length; s++) {
+            if (cancelled) break;
+            setBoard(res.states[s]);
+            const hasExplode = res.states[s].some((r) => r.some((c) => c.exploded));
+            playPop();
+            await new Promise((r) => setTimeout(r, hasExplode ? EXPLODE_DURATION : PLACE_DURATION));
+          }
+          setEliminated(new Set(engine.eliminated));
+          if (res.winner) setWinner(res.winner);
+          else setCurrent(res.nextPlayer);
+        } catch {
+          /* invalid move, skip */
+        }
+        appliedRef.current = i + 1;
+      }
+      if (!cancelled) setBusy(false);
+    }
+
+    void replay();
+    return () => {
+      cancelled = true;
+    };
+  }, [room, engine, playPop]);
+
+  const handleClick = useCallback(
+    (row: number, col: number) => {
+      if (busy || winner) return;
+      if (engine.currentPlayer().id !== String(mySeat)) return;
+      const seat = room.seats?.[String(mySeat)];
+      pushMove(room.id, {
+        row,
+        col,
+        uid: seat?.uid ?? '',
+        seat: mySeat,
+      }).catch(console.error);
+    },
+    [busy, winner, engine, mySeat, room],
+  );
+
+  return (
+    <div className="app" style={{ ['--accent' as string]: current.color }}>
+      <Scene
+        board={board}
+        rows={config.rows}
+        cols={config.cols}
+        current={current}
+        onCellClick={handleClick}
+      />
+      <HUD
+        players={engine.players}
+        current={current}
+        counts={counts}
+        eliminated={eliminated}
+        canUndo={false}
+        canRedo={false}
+        onUndo={() => {}}
+        onRedo={() => {}}
+        onReset={onExit}
+      />
+      {winner && (
+        <WinnerModal
+          winner={winner}
+          onPlayAgain={onExit}
+        />
+      )}
+    </div>
+  );
+}
+
+type Route =
+  | { kind: 'start' }
+  | { kind: 'local'; config: GameConfig }
+  | { kind: 'online'; roomId: string; mySeat: number };
+
+function parseJoinCodeFromHash(): string | undefined {
+  const h = window.location.hash;
+  const m = h.match(/^#\/room\/([A-Z0-9]+)/i);
+  return m ? m[1].toUpperCase() : undefined;
+}
+
+function roomUrl(roomId: string): string {
+  const { origin, pathname } = window.location;
+  return `${origin}${pathname}#/room/${roomId}`;
+}
+
 export default function App() {
-  const [config, setConfig] = useState<GameConfig | null>(null);
-  return config ? (
-    <Game
-      key={`${config.players}-${config.size}`}
-      config={config}
-      onExit={() => setConfig(null)}
-    />
-  ) : (
-    <StartScreen onStart={(players, size) => setConfig({ players, size })} />
+  const [route, setRoute] = useState<Route>({ kind: 'start' });
+  const [pendingJoin, setPendingJoin] = useState<string | undefined>(() => parseJoinCodeFromHash());
+  const [uid, setUid] = useState<string | null>(null);
+  const [room, setRoom] = useState<Room | null>(null);
+  const [mySeat, setMySeat] = useState<number>(-1);
+  const [error, setError] = useState<string | null>(null);
+  const [name, setName] = useState<string>(() => {
+    return localStorage.getItem('crName') ?? 'Player';
+  });
+
+  useEffect(() => {
+    ensureAuth().then(setUid).catch((e) => setError(String(e)));
+  }, []);
+
+  useEffect(() => {
+    if (route.kind !== 'online') return;
+    const unsub = subscribeRoom(route.roomId, (r) => {
+      setRoom(r);
+      if (!r) setError('Room closed');
+    });
+    return unsub;
+  }, [route]);
+
+  useEffect(() => {
+    if (route.kind === 'online') {
+      window.history.replaceState(null, '', `#/room/${route.roomId}`);
+    } else if (window.location.hash) {
+      window.history.replaceState(null, '', window.location.pathname);
+    }
+  }, [route]);
+
+  const persistName = (n: string) => {
+    setName(n);
+    localStorage.setItem('crName', n);
+  };
+
+  const onLocal = (players: number, size: number) => {
+    setRoute({ kind: 'local', config: { players, size } });
+  };
+
+  const onCreateOnline = async (players: number, size: number, n: string) => {
+    setError(null);
+    persistName(n);
+    try {
+      const u = uid ?? (await ensureAuth());
+      if (!uid) setUid(u);
+      const id = await createRoom(u, n, { rows: size, cols: size, players });
+      setMySeat(0);
+      setRoute({ kind: 'online', roomId: id, mySeat: 0 });
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
+    }
+  };
+
+  const onJoinOnline = async (code: string, n: string) => {
+    setError(null);
+    persistName(n);
+    try {
+      const u = uid ?? (await ensureAuth());
+      if (!uid) setUid(u);
+      const seat = await joinRoom(code, u, n);
+      setMySeat(seat);
+      setPendingJoin(undefined);
+      setRoute({ kind: 'online', roomId: code, mySeat: seat });
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
+    }
+  };
+
+  const exit = () => {
+    setRoute({ kind: 'start' });
+    setRoom(null);
+    setMySeat(-1);
+    setError(null);
+  };
+
+  if (route.kind === 'local') {
+    return (
+      <LocalGame
+        key={`${route.config.players}-${route.config.size}`}
+        config={route.config}
+        onExit={exit}
+      />
+    );
+  }
+
+  if (route.kind === 'online') {
+    if (!room) {
+      return (
+        <div className="modal-backdrop">
+          <div className="modal start">
+            <div className="modal-label">Connecting…</div>
+            {error && <div className="sub">{error}</div>}
+            <button className="pill" onClick={exit}>
+              Cancel
+            </button>
+          </div>
+        </div>
+      );
+    }
+    if (room.status === 'lobby') {
+      return (
+        <LobbyScreen
+          room={room}
+          uid={uid ?? ''}
+          shareUrl={roomUrl(room.id)}
+          canStart={room.hostUid === uid}
+          onStart={() => startRoom(room.id).catch(console.error)}
+          onLeave={exit}
+        />
+      );
+    }
+    return (
+      <OnlineGame
+        key={room.id}
+        room={room}
+        mySeat={mySeat}
+        onExit={exit}
+      />
+    );
+  }
+
+  return (
+    <>
+      <StartScreen
+        defaultName={name}
+        pendingJoinCode={pendingJoin}
+        onLocal={onLocal}
+        onCreateOnline={onCreateOnline}
+        onJoinOnline={onJoinOnline}
+      />
+      {error && <div className="error-toast">{error}</div>}
+    </>
   );
 }
