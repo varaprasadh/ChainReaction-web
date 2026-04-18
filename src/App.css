@@ -388,12 +388,12 @@ canvas {
 
 .pill {
   background: rgba(255, 255, 255, 0.12);
-  border: 1px solid rgba(255, 255, 255, 0.4);
-  color: #f4f5fa;
+  border: 1px solid rgba(255, 255, 255, 0.45);
+  color: #ffffff;
   padding: 7px 14px;
   border-radius: 999px;
   font-size: 13px;
-  font-weight: 500;
+  font-weight: 600;
   transition: all 0.15s ease;
 }
 
@@ -445,11 +445,11 @@ canvas {
   flex: 1;
   background: transparent;
   border: none;
-  color: #f4f5fa;
+  color: #ffffff;
   padding: 8px 14px;
   border-radius: 9px;
   font-size: 13px;
-  font-weight: 500;
+  font-weight: 600;
   letter-spacing: 0.04em;
   transition: all 0.2s ease;
 }
