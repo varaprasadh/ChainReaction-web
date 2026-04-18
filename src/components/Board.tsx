@@ -8,6 +8,7 @@ interface Props {
   rows: number;
   cols: number;
   color: string;
+  disabled?: boolean;
   onCellClick: (row: number, col: number) => void;
 }
 
@@ -16,12 +17,14 @@ function Cell({
   c,
   pos,
   color,
+  disabled,
   onClick,
 }: {
   r: number;
   c: number;
   pos: [number, number, number];
   color: string;
+  disabled: boolean;
   onClick: (r: number, c: number) => void;
 }) {
   const [hover, setHover] = useState(false);
@@ -29,15 +32,17 @@ function Cell({
     <mesh
       position={pos}
       onPointerOver={(e) => {
+        if (disabled) return;
         e.stopPropagation();
         setHover(true);
         document.body.style.cursor = 'pointer';
       }}
       onPointerOut={() => {
         setHover(false);
-        document.body.style.cursor = '';
+        if (!disabled) document.body.style.cursor = '';
       }}
       onPointerDown={(e) => {
+        if (disabled) return;
         e.stopPropagation();
         onClick(r, c);
       }}
@@ -45,7 +50,7 @@ function Cell({
       <planeGeometry args={[CELL * 0.96, CELL * 0.96]} />
       <meshBasicMaterial
         transparent
-        opacity={hover ? 0.18 : 0.03}
+        opacity={disabled ? 0 : hover ? 0.18 : 0.03}
         color={color}
         depthWrite={false}
       />
@@ -53,7 +58,7 @@ function Cell({
   );
 }
 
-export function Board({ rows, cols, color, onCellClick }: Props) {
+export function Board({ rows, cols, color, disabled = false, onCellClick }: Props) {
   const lineGeom = useMemo(() => {
     const points: THREE.Vector3[] = [];
     const totalW = cols * CELL;
@@ -90,6 +95,7 @@ export function Board({ rows, cols, color, onCellClick }: Props) {
           c={cell.c}
           pos={cell.pos}
           color={color}
+          disabled={disabled}
           onClick={onCellClick}
         />
       ))}

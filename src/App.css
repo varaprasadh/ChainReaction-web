@@ -148,6 +148,42 @@ canvas {
   color: #fff;
 }
 
+.player .you-tag {
+  background: rgba(255, 255, 255, 0.9);
+  color: #05060f;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  padding: 2px 6px;
+  border-radius: 4px;
+}
+
+.player.mine .name::after {
+  content: none;
+}
+
+.turn-status {
+  padding: 8px 14px;
+  border-radius: 999px;
+  background: rgba(10, 12, 26, 0.75);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: #c7cbe8;
+  font-size: 12px;
+  font-weight: 500;
+  letter-spacing: 0.06em;
+  pointer-events: none;
+  backdrop-filter: blur(6px);
+  animation: fade-in 0.2s ease;
+}
+
+.turn-status.own {
+  background: color-mix(in srgb, var(--c) 22%, rgba(10, 12, 26, 0.85));
+  border-color: var(--c);
+  color: #fff;
+  box-shadow: 0 0 20px color-mix(in srgb, var(--c) 45%, transparent);
+}
+
 .actions {
   margin-left: auto;
   display: flex;

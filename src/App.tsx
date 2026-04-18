@@ -49,12 +49,14 @@ function Scene({
   rows,
   cols,
   current,
+  disabled = false,
   onCellClick,
 }: {
   board: BoardT;
   rows: number;
   cols: number;
   current: Player;
+  disabled?: boolean;
   onCellClick: (row: number, col: number) => void;
 }) {
   const atoms = useMemo(() => {
@@ -123,7 +125,13 @@ function Scene({
       />
       <Stars radius={80} depth={40} count={1500} factor={3} fade />
       <group position={[-cx, -cy, 0]}>
-        <Board rows={rows} cols={cols} color={current.color} onCellClick={onCellClick} />
+        <Board
+          rows={rows}
+          cols={cols}
+          color={current.color}
+          disabled={disabled}
+          onCellClick={onCellClick}
+        />
         {atoms.map((a) => (
           <Atom
             key={a.id}
@@ -281,6 +289,7 @@ function LocalGame({ config, onExit }: { config: GameConfig; onExit: () => void 
         rows={config.size}
         cols={config.size}
         current={current}
+        disabled={busy || !!winner}
         onCellClick={handleClick}
       />
       <HUD
@@ -414,6 +423,14 @@ function OnlineGame({
     [busy, winner, engine, mySeat, room],
   );
 
+  const mySeatId = String(mySeat);
+  const myTurn = engine.currentPlayer().id === mySeatId;
+  const statusText = winner
+    ? null
+    : myTurn
+      ? 'Your turn'
+      : `Waiting for ${engine.currentPlayer().name}`;
+
   return (
     <div className="app" style={{ ['--accent' as string]: current.color }}>
       <Scene
@@ -421,6 +438,7 @@ function OnlineGame({
         rows={config.rows}
         cols={config.cols}
         current={current}
+        disabled={!myTurn || busy || !!winner}
         onCellClick={handleClick}
       />
       <HUD
@@ -433,6 +451,8 @@ function OnlineGame({
         onUndo={() => {}}
         onRedo={() => {}}
         onReset={onExit}
+        mineId={mySeatId}
+        statusText={statusText}
       />
       {winner && (
         <WinnerModal
