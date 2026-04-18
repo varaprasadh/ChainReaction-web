@@ -12,6 +12,7 @@ import { LobbyScreen } from './components/LobbyScreen';
 import bubbleAudio from './assets/audio/bubble.mp3';
 import { ensureAuth } from './net/firebase';
 import {
+  cancelRematch,
   createRoom,
   joinRoom,
   orderedMoves,
@@ -20,6 +21,8 @@ import {
   startRoom,
   subscribeChat,
   subscribeRoom,
+  tryFinalizeRematch,
+  voteRematch,
   type ChatMessage,
   type Room,
 } from './net/room';
@@ -443,6 +446,19 @@ function OnlineGame({
   }, [room.id]);
 
   const myName = room.seats?.[mySeatId]?.name ?? 'Player';
+
+  useEffect(() => {
+    if (!room.rematch) return;
+    const votes = room.rematch.votes ?? {};
+    const seatUids = Object.values(room.seats ?? {})
+      .filter(Boolean)
+      .map((s) => s.uid);
+    if (seatUids.length < 2) return;
+    const allYes = seatUids.every((u) => votes[u]);
+    if (allYes) {
+      tryFinalizeRematch(room.id).catch(console.error);
+    }
+  }, [room.rematch, room.seats, room.id]);
   const onSendChat = useCallback(
     async (text: string) => {
       const trimmed = text.trim();
@@ -486,12 +502,32 @@ function OnlineGame({
         myUid={myUid}
         onSend={onSendChat}
       />
-      {winner && (
-        <WinnerModal
-          winner={winner}
-          onPlayAgain={onExit}
-        />
-      )}
+      {winner && (() => {
+        const seatUids = Object.values(room.seats ?? {})
+          .filter(Boolean)
+          .map((s) => s.uid);
+        const seatNames: Record<string, string> = {};
+        for (const [idx, s] of Object.entries(room.seats ?? {})) {
+          if (s?.uid) seatNames[s.uid] = engine.players[Number(idx)]?.name ?? s.name;
+        }
+        return (
+          <WinnerModal
+            winner={winner}
+            onPlayAgain={onExit}
+            rematch={{
+              myUid,
+              seatUids,
+              seatNames,
+              votes: room.rematch?.votes ?? {},
+              onVote: () => voteRematch(room.id, myUid).catch(console.error),
+              onCancel: () => {
+                cancelRematch(room.id).catch(() => {});
+                onExit();
+              },
+            }}
+          />
+        );
+      })()}
     </div>
   );
 }
@@ -627,7 +663,7 @@ export default function App() {
     }
     return (
       <OnlineGame
-        key={room.id}
+        key={`${room.id}-${room.generation ?? 0}`}
         room={room}
         mySeat={mySeat}
         myUid={uid ?? ''}

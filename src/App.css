@@ -297,6 +297,46 @@ canvas {
   box-shadow: 0 8px 20px rgba(0, 0, 0, 0.4);
 }
 
+.modal-actions {
+  display: flex;
+  gap: 10px;
+  justify-content: center;
+  flex-wrap: wrap;
+}
+
+.modal-actions .ghost-btn {
+  background: transparent;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  color: #c7cbe8;
+  padding: 10px 22px;
+}
+
+.rematch-status {
+  color: #c7cbe8;
+  font-size: 13px;
+  margin-bottom: 18px;
+}
+
+.rematch-dots {
+  display: flex;
+  gap: 6px;
+  justify-content: center;
+  margin-top: 8px;
+}
+
+.rematch-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.15);
+  transition: background 0.25s ease, box-shadow 0.25s ease;
+}
+
+.rematch-dot.on {
+  background: #66e07a;
+  box-shadow: 0 0 10px rgba(102, 224, 122, 0.55);
+}
+
 .winner-ring {
   width: 70px;
   height: 70px;

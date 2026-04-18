@@ -4,6 +4,7 @@ import {
   onValue,
   push,
   ref,
+  remove,
   runTransaction,
   set,
   update,
@@ -31,6 +32,11 @@ export interface RoomConfig {
   players: number;
 }
 
+export interface Rematch {
+  proposer: string;
+  votes: Record<string, boolean>;
+}
+
 export interface Room {
   id: string;
   config: RoomConfig;
@@ -39,6 +45,8 @@ export interface Room {
   seats: Record<string, Seat>;
   moves: Record<string, MoveRecord>;
   createdAt: number;
+  generation?: number;
+  rematch?: Rematch | null;
 }
 
 const CODE_ALPHABET = 'ABCDEFGHJKMNPQRSTVWXYZ23456789';
@@ -128,6 +136,44 @@ export async function pushMove(
   move: Omit<MoveRecord, 'ts'>,
 ): Promise<void> {
   await push(ref(db, `rooms/${id}/moves`), { ...move, ts: Date.now() });
+}
+
+export async function voteRematch(id: string, uid: string): Promise<void> {
+  const roomRef = ref(db, `rooms/${id}`);
+  await runTransaction(roomRef, (room) => {
+    if (!room) return;
+    if (!room.rematch) {
+      room.rematch = { proposer: uid, votes: { [uid]: true } };
+    } else {
+      if (!room.rematch.votes) room.rematch.votes = {};
+      room.rematch.votes[uid] = true;
+    }
+    return room;
+  });
+}
+
+export async function cancelRematch(id: string): Promise<void> {
+  await remove(ref(db, `rooms/${id}/rematch`));
+}
+
+export async function tryFinalizeRematch(id: string): Promise<void> {
+  const roomRef = ref(db, `rooms/${id}`);
+  await runTransaction(roomRef, (room) => {
+    if (!room) return;
+    const votes = (room.rematch?.votes ?? {}) as Record<string, boolean>;
+    const seats = (room.seats ?? {}) as Record<string, Seat>;
+    const seatUids = Object.values(seats)
+      .filter((s): s is Seat => !!s && typeof s.uid === 'string')
+      .map((s) => s.uid);
+    if (seatUids.length < 2) return;
+    for (const uid of seatUids) {
+      if (!votes[uid]) return;
+    }
+    room.moves = null;
+    room.rematch = null;
+    room.generation = (room.generation ?? 0) + 1;
+    return room;
+  });
 }
 
 export function orderedMoves(room: Room): MoveRecord[] {
