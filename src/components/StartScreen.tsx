@@ -1,12 +1,21 @@
 import { useState } from 'react';
+import type { SeatKind } from '../App';
 
 interface Props {
   defaultName: string;
-  onLocal: (playerCount: number, size: number) => void;
+  onLocal: (playerCount: number, size: number, seats: SeatKind[]) => void;
   onCreateOnline: (playerCount: number, size: number, name: string) => void;
   onJoinOnline: (code: string, name: string) => void;
   pendingJoinCode?: string;
 }
+
+type BotDifficulty = 'bot-easy' | 'bot-medium' | 'bot-hard';
+
+const BOT_LABELS: Record<BotDifficulty, string> = {
+  'bot-easy': 'Easy',
+  'bot-medium': 'Medium',
+  'bot-hard': 'Hard',
+};
 
 export function StartScreen({
   defaultName,
@@ -21,11 +30,16 @@ export function StartScreen({
   const [action, setAction] = useState<'create' | 'join'>(pendingJoinCode ? 'join' : 'create');
   const [code, setCode] = useState(pendingJoinCode ?? '');
   const [name, setName] = useState(defaultName);
+  const [opponents, setOpponents] = useState<'humans' | 'bots'>('humans');
+  const [botLevel, setBotLevel] = useState<BotDifficulty>('bot-medium');
 
   function handleGo() {
     const trimmedName = name.trim() || 'Player';
     if (mode === 'local') {
-      onLocal(players, size);
+      const seats: SeatKind[] = Array.from({ length: players }, (_, i) =>
+        i === 0 || opponents === 'humans' ? 'human' : botLevel,
+      );
+      onLocal(players, size, seats);
       return;
     }
     if (action === 'create') {
@@ -135,6 +149,43 @@ export function StartScreen({
                 ))}
               </div>
             </div>
+            {mode === 'local' && (
+              <>
+                <div className="field">
+                  <label>Opponents</label>
+                  <div className="segmented">
+                    <button
+                      className={`seg${opponents === 'humans' ? ' active' : ''}`}
+                      onClick={() => setOpponents('humans')}
+                    >
+                      Humans
+                    </button>
+                    <button
+                      className={`seg${opponents === 'bots' ? ' active' : ''}`}
+                      onClick={() => setOpponents('bots')}
+                    >
+                      Bots
+                    </button>
+                  </div>
+                </div>
+                {opponents === 'bots' && (
+                  <div className="field">
+                    <label>Difficulty</label>
+                    <div className="pill-row">
+                      {(Object.keys(BOT_LABELS) as BotDifficulty[]).map((k) => (
+                        <button
+                          key={k}
+                          className={`pill${k === botLevel ? ' active' : ''}`}
+                          onClick={() => setBotLevel(k)}
+                        >
+                          {BOT_LABELS[k]}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </>
+            )}
           </>
         )}
 

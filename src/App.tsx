@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Canvas, useThree } from '@react-three/fiber';
 import { OrbitControls, Stars } from '@react-three/drei';
 import { ChainReaction, type EngineSnapshot } from './game/engine';
+import { askBot, type BotLevel } from './ai/bot';
 import type { Board as BoardT, Player } from './game/types';
 import { Board } from './components/Board';
 import { Atom, OFFSETS, cellToWorld } from './components/Atom';
@@ -32,9 +33,19 @@ import './App.css';
 const EXPLODE_DURATION = 420;
 const PLACE_DURATION = 280;
 
+export type SeatKind = 'human' | 'bot-easy' | 'bot-medium' | 'bot-hard';
+
 interface GameConfig {
   players: number;
   size: number;
+  seats?: SeatKind[];
+}
+
+function botLevelOf(kind: SeatKind): BotLevel | null {
+  if (kind === 'bot-easy') return 'easy';
+  if (kind === 'bot-medium') return 'medium';
+  if (kind === 'bot-hard') return 'hard';
+  return null;
 }
 
 function CameraRig({ dim }: { dim: number }) {
@@ -223,9 +234,8 @@ function LocalGame({ config, onExit }: { config: GameConfig; onExit: () => void 
     [playPop],
   );
 
-  const handleClick = useCallback(
+  const runMove = useCallback(
     (row: number, col: number) => {
-      if (busy || winner) return;
       try {
         const res = engine.place({ row, col });
         const elim = new Set(engine.eliminated);
@@ -237,8 +247,47 @@ function LocalGame({ config, onExit }: { config: GameConfig; onExit: () => void 
         /* invalid */
       }
     },
-    [busy, winner, engine, runStates, cursor],
+    [engine, runStates, cursor],
   );
+
+  const handleClick = useCallback(
+    (row: number, col: number) => {
+      if (busy || winner) return;
+      const seatKind = config.seats?.[Number(current.id)] ?? 'human';
+      if (seatKind !== 'human') return;
+      runMove(row, col);
+    },
+    [busy, winner, current.id, config.seats, runMove],
+  );
+
+  const [botThinking, setBotThinking] = useState(false);
+  useEffect(() => {
+    if (busy || winner) return;
+    const seatKind = config.seats?.[Number(current.id)] ?? 'human';
+    const level = botLevelOf(seatKind);
+    if (!level) return;
+    const ctrl = new AbortController();
+    setBotThinking(true);
+    askBot({
+      snapshot: engine.snapshot(),
+      config: { rows: config.size, cols: config.size, players: config.players },
+      rootId: current.id,
+      level,
+      signal: ctrl.signal,
+    })
+      .then((res) => {
+        setBotThinking(false);
+        if (ctrl.signal.aborted) return;
+        setTimeout(() => {
+          if (!ctrl.signal.aborted) runMove(res.row, res.col);
+        }, 220);
+      })
+      .catch((e) => {
+        setBotThinking(false);
+        if (e?.name !== 'AbortError') console.error(e);
+      });
+    return () => ctrl.abort();
+  }, [current.id, busy, winner, engine, config, runMove]);
 
   const jumpTo = useCallback(
     (idx: number) => {
@@ -296,7 +345,7 @@ function LocalGame({ config, onExit }: { config: GameConfig; onExit: () => void 
         rows={config.size}
         cols={config.size}
         current={current}
-        disabled={busy || !!winner}
+        disabled={busy || !!winner || botThinking || !!botLevelOf(config.seats?.[Number(current.id)] ?? 'human')}
         onCellClick={handleClick}
       />
       <HUD
@@ -309,6 +358,7 @@ function LocalGame({ config, onExit }: { config: GameConfig; onExit: () => void 
         onUndo={undo}
         onRedo={redo}
         onReset={onExit}
+        statusText={botThinking ? `${current.name} thinking…` : undefined}
       />
       {winner && <WinnerModal winner={winner} onPlayAgain={playAgain} />}
     </div>
@@ -585,8 +635,8 @@ export default function App() {
     localStorage.setItem('crName', n);
   };
 
-  const onLocal = (players: number, size: number) => {
-    setRoute({ kind: 'local', config: { players, size } });
+  const onLocal = (players: number, size: number, seats: SeatKind[]) => {
+    setRoute({ kind: 'local', config: { players, size, seats } });
   };
 
   const onCreateOnline = async (players: number, size: number, n: string) => {
@@ -628,7 +678,7 @@ export default function App() {
   if (route.kind === 'local') {
     return (
       <LocalGame
-        key={`${route.config.players}-${route.config.size}`}
+        key={`${route.config.players}-${route.config.size}-${(route.config.seats ?? []).join(',')}`}
         config={route.config}
         onExit={exit}
       />
