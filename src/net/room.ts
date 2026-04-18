@@ -139,16 +139,14 @@ export async function pushMove(
 }
 
 export async function voteRematch(id: string, uid: string): Promise<void> {
-  const roomRef = ref(db, `rooms/${id}`);
-  await runTransaction(roomRef, (room) => {
-    if (!room) return;
-    if (!room.rematch) {
-      room.rematch = { proposer: uid, votes: { [uid]: true } };
-    } else {
-      if (!room.rematch.votes) room.rematch.votes = {};
-      room.rematch.votes[uid] = true;
+  const rematchRef = ref(db, `rooms/${id}/rematch`);
+  await runTransaction(rematchRef, (current) => {
+    if (!current) {
+      return { proposer: uid, votes: { [uid]: true } };
     }
-    return room;
+    if (!current.votes) current.votes = {};
+    current.votes[uid] = true;
+    return current;
   });
 }
 
@@ -157,22 +155,12 @@ export async function cancelRematch(id: string): Promise<void> {
 }
 
 export async function tryFinalizeRematch(id: string): Promise<void> {
-  const roomRef = ref(db, `rooms/${id}`);
-  await runTransaction(roomRef, (room) => {
-    if (!room) return;
-    const votes = (room.rematch?.votes ?? {}) as Record<string, boolean>;
-    const seats = (room.seats ?? {}) as Record<string, Seat>;
-    const seatUids = Object.values(seats)
-      .filter((s): s is Seat => !!s && typeof s.uid === 'string')
-      .map((s) => s.uid);
-    if (seatUids.length < 2) return;
-    for (const uid of seatUids) {
-      if (!votes[uid]) return;
-    }
-    room.moves = null;
-    room.rematch = null;
-    room.generation = (room.generation ?? 0) + 1;
-    return room;
+  const genRef = ref(db, `rooms/${id}/generation`);
+  const res = await runTransaction(genRef, (g) => (typeof g === 'number' ? g : 0) + 1);
+  if (!res.committed) return;
+  await update(ref(db, `rooms/${id}`), {
+    moves: null,
+    rematch: null,
   });
 }
 
