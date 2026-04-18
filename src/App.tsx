@@ -127,6 +127,7 @@ function Scene({
         fov: 50,
       }}
       dpr={[1, 2]}
+      gl={{ preserveDrawingBuffer: true }}
     >
       <color attach="background" args={['#05060f']} />
       <ambientLight intensity={0.18} />
