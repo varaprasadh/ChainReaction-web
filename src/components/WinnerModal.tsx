@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import type { Player } from '../game/types';
-import { APP_URL, captureBoardBlob, shareText, tryNativeShare } from '../utils/share';
+import { captureBoardBlob } from '../utils/share';
 import { ShareSheet } from './ShareSheet';
 
 interface RematchState {
@@ -32,13 +32,9 @@ export function WinnerModal({ winner, onPlayAgain, primaryLabel = 'Play again', 
     if (sharing) return;
     setSharing(true);
     const blob = await captureBoardBlob();
-    const text = shareText(winner.name);
-    const used = await tryNativeShare(blob, text, APP_URL);
+    setShareBlob(blob);
+    setShowSheet(true);
     setSharing(false);
-    if (!used) {
-      setShareBlob(blob);
-      setShowSheet(true);
-    }
   }
 
   return (

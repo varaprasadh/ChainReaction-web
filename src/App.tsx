@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Canvas, useThree } from '@react-three/fiber';
 import { OrbitControls, Stars } from '@react-three/drei';
-import { ChainReaction, type EngineSnapshot } from './game/engine';
+import { ChainReaction } from './game/engine';
 import { askBot, type BotLevel } from './ai/bot';
 import type { Board as BoardT, Player } from './game/types';
 import { Board } from './components/Board';
@@ -201,11 +201,6 @@ function LocalGame({ config, onExit }: { config: GameConfig; onExit: () => void 
   const [eliminated, setEliminated] = useState<Set<string>>(new Set());
   const [busy, setBusy] = useState(false);
 
-  const historyRef = useRef<EngineSnapshot[]>([engine.snapshot()]);
-  const [cursor, setCursor] = useState(0);
-  const canUndo = cursor > 0 && !busy && !winner;
-  const canRedo = cursor < historyRef.current.length - 1 && !busy && !winner;
-
   const playPop = useAudioPop();
 
   const counts = useMemo(() => {
@@ -240,15 +235,12 @@ function LocalGame({ config, onExit }: { config: GameConfig; onExit: () => void 
       try {
         const res = engine.place({ row, col });
         const elim = new Set(engine.eliminated);
-        historyRef.current = historyRef.current.slice(0, cursor + 1);
-        historyRef.current.push(engine.snapshot());
-        setCursor(historyRef.current.length - 1);
         void runStates(res.states, res.winner, res.nextPlayer, elim);
       } catch {
         /* invalid */
       }
     },
-    [engine, runStates, cursor],
+    [engine, runStates],
   );
 
   const handleClick = useCallback(
@@ -290,48 +282,8 @@ function LocalGame({ config, onExit }: { config: GameConfig; onExit: () => void 
     return () => ctrl.abort();
   }, [current.id, busy, winner, engine, config, runMove]);
 
-  const jumpTo = useCallback(
-    (idx: number) => {
-      if (idx < 0 || idx >= historyRef.current.length) return;
-      const snap = historyRef.current[idx];
-      engine.restore(snap);
-      setBoard(JSON.parse(JSON.stringify(engine.board)) as BoardT);
-      setCurrent(engine.currentPlayer());
-      setEliminated(new Set(engine.eliminated));
-      setWinner(null);
-      setCursor(idx);
-    },
-    [engine],
-  );
-
-  const undo = useCallback(() => {
-    if (canUndo) jumpTo(cursor - 1);
-  }, [canUndo, cursor, jumpTo]);
-  const redo = useCallback(() => {
-    if (canRedo) jumpTo(cursor + 1);
-  }, [canRedo, cursor, jumpTo]);
-
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      const mod = e.metaKey || e.ctrlKey;
-      if (!mod) return;
-      if (e.key.toLowerCase() === 'z') {
-        e.preventDefault();
-        if (e.shiftKey) redo();
-        else undo();
-      } else if (e.key.toLowerCase() === 'y') {
-        e.preventDefault();
-        redo();
-      }
-    };
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  }, [undo, redo]);
-
   const playAgain = useCallback(() => {
     engine.reset();
-    historyRef.current = [engine.snapshot()];
-    setCursor(0);
     setBoard(JSON.parse(JSON.stringify(engine.board)) as BoardT);
     setCurrent(engine.currentPlayer());
     setEliminated(new Set());
@@ -354,10 +306,6 @@ function LocalGame({ config, onExit }: { config: GameConfig; onExit: () => void 
         current={current}
         counts={counts}
         eliminated={eliminated}
-        canUndo={canUndo}
-        canRedo={canRedo}
-        onUndo={undo}
-        onRedo={redo}
         onReset={onExit}
         statusText={botThinking ? `${current.name} thinking…` : undefined}
       />
@@ -539,10 +487,6 @@ function OnlineGame({
         current={current}
         counts={counts}
         eliminated={eliminated}
-        canUndo={false}
-        canRedo={false}
-        onUndo={() => {}}
-        onRedo={() => {}}
         onReset={onExit}
         mineId={mySeatId}
         statusText={statusText}

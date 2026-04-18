@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { APP_URL, downloadBlob, shareLinks, shareText } from '../utils/share';
+import { APP_URL, downloadBlob, shareLinks, shareText, tryNativeShare } from '../utils/share';
 
 interface Props {
   blob: Blob | null;
@@ -50,6 +50,17 @@ export function ShareSheet({ blob, winnerName, onClose }: Props) {
           </div>
         )}
         <div className="share-grid">
+          {typeof navigator !== 'undefined' && 'share' in navigator && (
+            <button
+              className="share-btn"
+              onClick={() => {
+                void tryNativeShare(blob, text, APP_URL);
+              }}
+            >
+              <span className="share-ico">↗</span>
+              <span>Device</span>
+            </button>
+          )}
           <button className="share-btn" onClick={() => openExternal(links.x)}>
             <span className="share-ico share-x">𝕏</span>
             <span>X</span>

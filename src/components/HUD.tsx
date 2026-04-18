@@ -5,28 +5,12 @@ interface Props {
   current: Player;
   counts: Map<string, number>;
   eliminated: Set<string>;
-  canUndo: boolean;
-  canRedo: boolean;
-  onUndo: () => void;
-  onRedo: () => void;
   onReset: () => void;
   mineId?: string;
   statusText?: string | null;
 }
 
-export function HUD({
-  players,
-  current,
-  counts,
-  eliminated,
-  canUndo,
-  canRedo,
-  onUndo,
-  onRedo,
-  onReset,
-  mineId,
-  statusText,
-}: Props) {
+export function HUD({ players, current, counts, eliminated, onReset, mineId, statusText }: Props) {
   return (
     <div className="hud">
       <div className="hud-title">Chain Reaction</div>
@@ -59,16 +43,6 @@ export function HUD({
         </div>
       )}
       <div className="actions">
-        {canUndo || canRedo ? (
-          <>
-            <button className="icon-btn" onClick={onUndo} disabled={!canUndo} title="Undo (⌘Z)">
-              ↶
-            </button>
-            <button className="icon-btn" onClick={onRedo} disabled={!canRedo} title="Redo (⇧⌘Z)">
-              ↷
-            </button>
-          </>
-        ) : null}
         <button className="reset" onClick={onReset}>
           Exit
         </button>
