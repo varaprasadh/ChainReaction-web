@@ -49,17 +49,24 @@ function botLevelOf(kind: SeatKind): BotLevel | null {
   return null;
 }
 
-function CameraRig({ dim }: { dim: number }) {
+function CameraRig({ rows, cols }: { rows: number; cols: number }) {
   const { camera, size } = useThree();
   useEffect(() => {
+    const fov = 50 * (Math.PI / 180);
+    const t = Math.tan(fov / 2);
     const aspect = size.width / Math.max(size.height, 1);
+    const halfW = (cols * 3) / 2;
+    const halfH = (rows * 3) / 2;
+    const distV = halfH / t;
+    const distH = halfW / (t * aspect);
     const narrow = aspect < 1;
-    const dist = narrow ? dim * 4.2 : dim * 3.2;
-    const lift = narrow ? dim * 1.4 : dim * 2.2;
-    camera.position.set(0, -lift, dist);
+    const margin = narrow ? 1.6 : 1.35;
+    const distance = Math.max(distV, distH) * margin;
+    const lift = narrow ? distance * 0.18 : distance * 0.4;
+    camera.position.set(0, -lift, distance);
     camera.lookAt(0, 0, 0);
     camera.updateProjectionMatrix();
-  }, [camera, size.width, size.height, dim]);
+  }, [camera, size.width, size.height, rows, cols]);
   return null;
 }
 
@@ -135,12 +142,12 @@ function Scene({
       <directionalLight position={[6, 8, 10]} intensity={1.4} color="#ffffff" />
       <pointLight position={[-8, -6, 6]} intensity={0.6} color="#6ea8ff" />
       <pointLight position={[0, 0, -6]} intensity={0.35} color={current.color} />
-      <CameraRig dim={dim} />
+      <CameraRig rows={rows} cols={cols} />
       <OrbitControls
         target={[0, 0, 0]}
         enablePan={false}
-        minDistance={dim * 1.5}
-        maxDistance={dim * 6}
+        minDistance={dim * 1.2}
+        maxDistance={dim * 8}
         maxPolarAngle={Math.PI * 0.85}
       />
       <Stars radius={80} depth={40} count={1500} factor={3} fade />
