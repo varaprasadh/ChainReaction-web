@@ -1,429 +1,719 @@
-// @ts-nocheck
-
-import React, { useEffect, useRef, useState, useMemo } from "react";
-//R3F
-import { Canvas, useFrame, extend, useThree } from "@react-three/fiber";
-
-import { OrbitControls } from "three/examples/jsm/controls/OrbitControls";
-
-import { Stars } from "@react-three/drei";
-
-
-import * as THREE from "three";
-
-import "./components/three/ColorMaterial";
-import { Grid as BoxGrid } from "./components/Grid";
-
-import bubbleAudio from "./assets/audio/bubble.mp3";
-
-
-//Components
-
-// React Spring
-import { useSpring, a } from "@react-spring/three";
-
-// Styles
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Canvas, useThree } from '@react-three/fiber';
+import { OrbitControls, Stars } from '@react-three/drei';
+import { ChainReaction } from './game/engine';
+import { askBot, type BotLevel } from './ai/bot';
+import type { Board as BoardT, Player } from './game/types';
+import { Board } from './components/Board';
+import { Atom, OFFSETS, cellToWorld } from './components/Atom';
+import { HUD } from './components/HUD';
+import { WinnerModal } from './components/WinnerModal';
+import { StartScreen } from './components/StartScreen';
+import { LobbyScreen } from './components/LobbyScreen';
+import bubbleAudio from './assets/audio/bubble.mp3';
+import { ensureAuth } from './net/firebase';
+import {
+  cancelRematch,
+  createRoom,
+  joinRoom,
+  orderedMoves,
+  pushMove,
+  sendChat,
+  startRoom,
+  subscribeChat,
+  subscribeRoom,
+  tryFinalizeRematch,
+  voteRematch,
+  type ChatMessage,
+  type Room,
+} from './net/room';
+import { ChatPanel } from './components/ChatPanel';
+import { AdminPage } from './components/AdminPage';
 import './App.css';
 
-import ChainReaction from "./utils/ChainReaction";
+const EXPLODE_DURATION = 420;
+const PLACE_DURATION = 280;
 
+export type SeatKind = 'human' | 'bot-easy' | 'bot-medium' | 'bot-hard';
 
-// Extend will make OrbitControls available as a JSX element called orbitControls for us to use.
-extend({ OrbitControls });
+interface GameConfig {
+  players: number;
+  size: number;
+  seats?: SeatKind[];
+}
 
+function botLevelOf(kind: SeatKind): BotLevel | null {
+  if (kind === 'bot-easy') return 'easy';
+  if (kind === 'bot-medium') return 'medium';
+  if (kind === 'bot-hard') return 'hard';
+  return null;
+}
 
-const CameraControls = () => {
-  // Get a reference to the Three.js Camera, and the canvas html element.
-  // We need these to setup the OrbitControls component.
-  // https://threejs.org/docs/#examples/en/controls/OrbitControls
-  const {
-    camera,
-    gl: { domElement },
-  } = useThree();
-  // Ref to the controls, so that we can update them on every frame using useFrame
-  const controls = useRef();
-  useFrame((state) => controls.current.update());
-  return <orbitControls ref={controls} args={[camera, domElement]} />;
-};
-
-const SpinningMesh = ({ position, color, speed, args }) => {
-  //ref to target the mesh
-  const mesh = useRef();
-
-  //useFrame allows us to re-render/update rotation on each frame
-  useFrame(() => (mesh.current.rotation.x = mesh.current.rotation.y += 0.01));
-
-  //Basic expand state
-  const [expand, setExpand] = useState(false);
-  // React spring expand animation
-  const props = useSpring({
-    scale: expand ? [1.4, 1.4, 1.4] : [1, 1, 1],
-  });
-
-  return (
-    <a.mesh
-      position={position}
-      ref={mesh}
-      onClick={() => setExpand(!expand)}
-      scale={props.scale}
-      castShadow>
-      <boxBufferGeometry attach='geometry' args={args} />
-      <meshStandardMaterial
-        color={color}
-        attach='material'
-      />
-    </a.mesh>
-  );
-};
-
-const Sphere = ({ position, from, color, args = [0.2, 32, 32] }) => {
-  const mesh = useRef();
-
+function CameraRig({ rows, cols }: { rows: number; cols: number }) {
+  const { camera, size } = useThree();
   useEffect(() => {
-    if (from) {
-
-      const [x1, y1, z1] = from;
-      const [x2, y2, z2] = position;
-
-      const diffX = (x2 - x1);
-      const diffY = (y2 - y1);
-      const dx = diffX / 10;
-      const dy = diffY / 10;
-
-      mesh.current.position.set(x1, y1, z1 );
-      let step = 0;
-
-      const timer = setInterval(() => {
-        if(!mesh.current) return clearInterval(timer);
-        mesh.current.position.x += dx;
-        mesh.current.position.y += dy;
-        step++;
-        if (step === 10) {
-          clearInterval(timer);
-        }
-      }, 20)
-      return () => clearInterval(timer)
-    }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
-
-
-  return (
-    <a.mesh
-      position={position}
-      castShadow
-      ref={mesh}
-    >
-      <sphereBufferGeometry attach="geometry" args={args} />
-      <meshPhongMaterial
-        attach='material'
-        color={color}
-        specular={0x050505}
-        shininess={80}
-      />
-    </a.mesh>
-  )
-};
-
-// compound  : group of atoms 
-// based on count arrange placement 
-
-const Compound = ({ cell }) => {
-
-  const compound = useRef();
-
-  const atom = cell.items.length && cell.items[0];
-
-  const [_x, _y, _z] = atom ? [atom.currentPosition.column*3, atom.currentPosition.row*3 , 0] : [0, 0, 0];
-
-  const atoms = cell.items.map(info => {
-    const prow = info.prevPosition.row;
-    const pcol = info.prevPosition.column;
-
-    return ({
-      ...info,
-      prevPosition: [pcol * 3 - _x, prow * 3 - _y, 0],
-      currentPosition: [0, 0, 0]
-    })
-  });
-
-
-
-  switch (atoms.length) {
-    case 2:
-      {
-        const [x, y, z] = atoms[0].currentPosition;
-        atoms[0].currentPosition = [x - 0.2, y, z];
-      }
-      {
-        const [x, y, z] = atoms[1].currentPosition;
-        atoms[1].currentPosition = [x + 0.1, y, z];
-      }
-      break;
-    case 3:
-      {
-        const [x, y, z] = atoms[0].currentPosition;
-        atoms[0].currentPosition = [x - 0.1, y - 0.25, z];
-      }
-      {
-        const [x, y, z] = atoms[1].currentPosition;
-        atoms[1].currentPosition = [x + 0.1, y - 0.25, z];
-      }
-      {
-        const [x, y, z] = atoms[1].currentPosition;
-        atoms[2].currentPosition = [x, y + 0.2, z];
-      }
-      break;
-  }
-
-  const [revolve, setRevolve] = useState(false);
-  useFrame(state => {
-    if (revolve) {
-      compound.current.rotation.x += 0.01;
-      compound.current.rotation.z += 0.05;
-    }
-  });
-
-  // useEffect(() => {
-  //   console.log("only running once"); 
-  //   const timer = setTimeout(() => {
-  //     console.log("tureing timer");
-  //     setRevolve(true);
-  //   }, 600);
-  //   return () => {
-  //     console.log("falsing timer");
-  //     setRevolve(false);
-  //     clearTimeout(timer);
-  //   };
-  // }, [cell.items]);
-  
-
-  return (
-    <group ref={compound} position={[_x, _y, _z]}>
-      {
-        atoms.map((atom, index) => (
-          <Sphere
-            key={atom.id}
-            color={cell.owner ? cell.owner.color: 'pink'}
-            position={atom.currentPosition}
-            from={atom.prevPosition}
-          />
-        ))
-      }
-    </group>
-  )
+    const fov = 50 * (Math.PI / 180);
+    const t = Math.tan(fov / 2);
+    const aspect = size.width / Math.max(size.height, 1);
+    const halfW = (cols * 3) / 2;
+    const halfH = (rows * 3) / 2;
+    const distV = halfH / t;
+    const distH = halfW / (t * aspect);
+    const narrow = aspect < 1;
+    const margin = narrow ? 1.6 : 1.35;
+    const distance = Math.max(distV, distH) * margin;
+    const lift = narrow ? distance * 0.18 : distance * 0.4;
+    camera.position.set(0, -lift, distance);
+    camera.lookAt(0, 0, 0);
+    camera.updateProjectionMatrix();
+  }, [camera, size.width, size.height, rows, cols]);
+  return null;
 }
 
-
-
-const Grid = ({ args, rows = 5, columns = 5, color, position = [0, 0, 0], onGridCellClick }) => {
-
-
-  const GridCell = ({ position, args, color , onClick}) => {
-    const [cx, cy, cz] = position;
-    const [CELL_WIDTH, CELL_HEIGHT, depth] = args;
-
-    const points = [];
-    points.push(
-      new THREE.Vector3(cx - CELL_WIDTH / 2, cy - CELL_HEIGHT / 2, -1),
-      new THREE.Vector3(cx + CELL_WIDTH / 2, cy - CELL_HEIGHT / 2, -1),
-      new THREE.Vector3(cx + CELL_WIDTH / 2, cy + CELL_HEIGHT / 2, -1),
-      new THREE.Vector3(cx - CELL_WIDTH / 2, cy + CELL_HEIGHT / 2, -1),
-      new THREE.Vector3(cx - CELL_WIDTH / 2, cy - CELL_HEIGHT / 2, -1),
-    );
-
-    const lineGeometry = new THREE.BufferGeometry().setFromPoints(points);
-
-    return (
-      <group>
-      <line geometry={lineGeometry} >
-        <lineBasicMaterial attach="material" color={color} linewidth={2} linecap={'round'} linejoin={'round'} />
-      </line>
-      </group>
-    )
-  }
-  const CELL_WIDTH = 3;
-  const CELL_HEIGHT = 3;
-
-  const cells = [];
-
-  for (let y = 0, h = 0; y < rows; h += CELL_HEIGHT, y++) {
-    for (let x = 0, w = 0; x < columns; w += CELL_WIDTH, x++) {
-      const position = [x * CELL_WIDTH, y * CELL_HEIGHT, 0]
-      cells.push({
-        position,
-        args: [CELL_WIDTH, CELL_HEIGHT, 1]
-      });
-    }
-  };
-
-  return (
-      <group
-        position={position}
-        castShadow
-      >
-        {
-          cells.map(({ position, args }, index) => (
-            <GridCell 
-              key={index}
-              position={position} 
-              args={args} 
-              color={color}
-              onClick={onGridCellClick}
-            />
-          ))
-        }
-      </group>
-  )
-
-}
-
-
-const explodeSound = new Audio(bubbleAudio);
-
-const AtomContainer = () => {
-  const [state, setState] = useState([]);
-  const [player, setPlayer] = useState({}); // first player of the board 
-  const [animationQueue, setAnimationQueue] = useState([]);
-
-  const chainReaction = useRef(new ChainReaction({}, 2));
-
-  useEffect(()=>{
-    setPlayer(chainReaction.current.getCurrentPlayer());
-  }, []);
-
-  // handles animation queue 
-  useEffect(()=>{
-      let timer = null;
-
-      if (animationQueue.length ) {
-        const animationState = animationQueue.shift();
-        let transitionDuration = 1000;
-        const explodableState = animationState.filter(row => row.filter(cell => cell.items.length > cell.capacity).length).length > 0;
-        if (explodableState){
-          transitionDuration = 600;
-          explodeSound.currentTime = 0;
-          explodeSound.play();
-        };
-        if (animationQueue.length === 1) {
-          setState(animationState);
-          setAnimationQueue([...animationQueue]);
-        }else{
-          setState(animationState);
-          // setAnimationQueue([...animationQueue]);
-          timer = setTimeout(() => {
-            // setState(animationState);
-            setAnimationQueue([...animationQueue]);
-          }, transitionDuration)
-        }
-
-      };
-
-      return () => clearTimeout(timer);
-
-  }, [animationQueue])
-
-
-
-
-  const resetGame = () => {
-    console.log("is it happening")
-    chainReaction.current.reset();
-    setState([...chainReaction.current.board]);
-  }
-
-  const addAtom = ( event) => {
-    const { eventObject: { position } } = event;
-
-    try{
-      const result = chainReaction.current.nextState(chainReaction.current.board, { row: position.y / 3, column: position.x / 3 });
-
-      const {
-        states,   // transitions between first state to last state
-        board,    // final state of the board,ignore for now
-        gameOver, // name itself telling what it is,
-        player,    // the player who changed this current state of board
-        nextPlayer // next player 
-      } = result;
-
-
-      setAnimationQueue(states);
-      setPlayer(nextPlayer);
-  
-      if (gameOver) {
-        const Message = `"game over buddy winner is",${player.id}`
-        console.log(Message, player.id, player.name);
-        // setTimeout(() => {
-        //   // resetGame();
-        //   // alert(Message);
-        //   console.log("game is over");
-
-        // }, 1000)
+function Scene({
+  board,
+  rows,
+  cols,
+  current,
+  disabled = false,
+  onCellClick,
+}: {
+  board: BoardT;
+  rows: number;
+  cols: number;
+  current: Player;
+  disabled?: boolean;
+  onCellClick: (row: number, col: number) => void;
+}) {
+  const atoms = useMemo(() => {
+    const out: Array<{
+      id: string;
+      color: string;
+      from: { row: number; col: number };
+      to: { row: number; col: number };
+      offset: [number, number, number];
+      exploding: boolean;
+      spin: boolean;
+      axis: [number, number, number];
+    }> = [];
+    for (const row of board) {
+      for (const cell of row) {
+        const count = cell.atoms.length;
+        const offs = OFFSETS[Math.min(count, 4)] ?? OFFSETS[3];
+        const spin = count >= 2;
+        const seed = cell.position.row * 31 + cell.position.col * 17 + 3;
+        let ax = Math.sin(seed * 0.73);
+        let ay = Math.cos(seed * 0.41) * 0.8;
+        let az = Math.sin(seed * 1.17) + 0.4;
+        const len = Math.hypot(ax, ay, az) || 1;
+        const axis: [number, number, number] = [ax / len, ay / len, az / len];
+        cell.atoms.forEach((atom, i) => {
+          out.push({
+            id: atom.id,
+            color: cell.owner?.color ?? '#ffffff',
+            from: atom.prevPos,
+            to: atom.currPos,
+            offset: offs[i % offs.length],
+            exploding: !!cell.exploded,
+            spin,
+            axis,
+          });
+        });
       }
-    }catch(error){
-      console.error(error);
     }
+    return out;
+  }, [board]);
 
-  }
-
-  useFrame(()=>{
-      
-  });
-
-
-
-  return (
-   <>
-      {
-        state.map((row, r) => row.map((cell, c) => (
-          <Compound key={cell.id} cell={cell} />
-        )))
-      }
-      <Grid
-        color={player.color || "#aef7fc"}
-        rows={4}
-        columns={4}
-      />
-      <BoxGrid
-        rows={4}
-        columns={4}
-        onGridCellClick={e =>addAtom(e)}
-        position={[0, 0, -2]}
-      />
-   </>
-  )
-} 
-
-
-const Game = () => {
+  const cx = ((cols - 1) * 3) / 2;
+  const cy = ((rows - 1) * 3) / 2;
+  const dim = Math.max(rows, cols);
 
   return (
     <Canvas
-      camera={{ position: [10, -20, 30], fov: 60 }}>
-      <axesHelper position={[0, 0, 0]} />
-      {/* <gridHelper/> */}
-      <CameraControls />
-      {/* This light makes things look pretty */}
-      <ambientLight intensity={1} color="white" />
-      {/* Our main source of light, also casting our shadow */}
-      {/* <directionalLight
-        castShadow
-        position={[0, 10, 0]}
-        intensity={1.5}
-      /> */}
-      {/* A light to help illuminate the spinning boxes */}
-      <pointLight position={[0, -10, 0]} intensity={1.5} color="red"/>
-      <AtomContainer/>
-      <Stars/>
+      camera={{
+        position: [0, -dim * 2.2, dim * 3.2],
+        fov: 50,
+      }}
+      dpr={[1, 2]}
+      gl={{ preserveDrawingBuffer: true }}
+    >
+      <color attach="background" args={['#05060f']} />
+      <ambientLight intensity={0.18} />
+      <directionalLight position={[6, 8, 10]} intensity={1.4} color="#ffffff" />
+      <pointLight position={[-8, -6, 6]} intensity={0.6} color="#6ea8ff" />
+      <pointLight position={[0, 0, -6]} intensity={0.35} color={current.color} />
+      <CameraRig rows={rows} cols={cols} />
+      <OrbitControls
+        target={[0, 0, 0]}
+        enablePan={false}
+        minDistance={dim * 1.2}
+        maxDistance={dim * 8}
+        maxPolarAngle={Math.PI * 0.85}
+      />
+      <Stars radius={80} depth={40} count={1500} factor={3} fade />
+      <group position={[-cx, -cy, 0]}>
+        <Board
+          rows={rows}
+          cols={cols}
+          color={current.color}
+          disabled={disabled}
+          onCellClick={onCellClick}
+        />
+        {atoms.map((a) => (
+          <Atom
+            key={a.id}
+            color={a.color}
+            from={a.from}
+            to={a.to}
+            offset={a.offset}
+            exploding={a.exploding}
+            spin={a.spin}
+            axis={a.axis}
+          />
+        ))}
+      </group>
     </Canvas>
-  )
-
-
+  );
 }
-function App() {
+
+function useAudioPop() {
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+  useEffect(() => {
+    audioRef.current = new Audio(bubbleAudio);
+    audioRef.current.volume = 0.4;
+  }, []);
+  return useCallback(() => {
+    const a = audioRef.current;
+    if (!a) return;
+    a.currentTime = 0;
+    void a.play().catch(() => {});
+  }, []);
+}
+
+function LocalGame({ config, onExit }: { config: GameConfig; onExit: () => void }) {
+  const engineRef = useRef<ChainReaction | null>(null);
+  if (!engineRef.current) {
+    engineRef.current = new ChainReaction({
+      rows: config.size,
+      cols: config.size,
+      players: config.players,
+    });
+  }
+  const engine = engineRef.current;
+
+  const [board, setBoard] = useState<BoardT>(() =>
+    JSON.parse(JSON.stringify(engine.board)) as BoardT,
+  );
+  const [current, setCurrent] = useState<Player>(() => engine.currentPlayer());
+  const [winner, setWinner] = useState<Player | null>(null);
+  const [eliminated, setEliminated] = useState<Set<string>>(new Set());
+  const [busy, setBusy] = useState(false);
+
+  const playPop = useAudioPop();
+
+  const counts = useMemo(() => {
+    const m = new Map<string, number>();
+    for (const row of board) {
+      for (const cell of row) {
+        if (cell.owner) m.set(cell.owner.id, (m.get(cell.owner.id) ?? 0) + cell.atoms.length);
+      }
+    }
+    return m;
+  }, [board]);
+
+  const runStates = useCallback(
+    async (states: BoardT[], finalWinner: Player | null, nextPlayer: Player, elim: Set<string>) => {
+      setBusy(true);
+      for (let i = 0; i < states.length; i++) {
+        setBoard(states[i]);
+        const hasExplode = states[i].some((row) => row.some((c) => c.exploded));
+        playPop();
+        await new Promise((r) => setTimeout(r, hasExplode ? EXPLODE_DURATION : PLACE_DURATION));
+      }
+      setEliminated(new Set(elim));
+      if (finalWinner) setWinner(finalWinner);
+      else setCurrent(nextPlayer);
+      setBusy(false);
+    },
+    [playPop],
+  );
+
+  const runMove = useCallback(
+    (row: number, col: number) => {
+      try {
+        const res = engine.place({ row, col });
+        const elim = new Set(engine.eliminated);
+        void runStates(res.states, res.winner, res.nextPlayer, elim);
+      } catch {
+        /* invalid */
+      }
+    },
+    [engine, runStates],
+  );
+
+  const handleClick = useCallback(
+    (row: number, col: number) => {
+      if (busy || winner) return;
+      const seatKind = config.seats?.[Number(current.id)] ?? 'human';
+      if (seatKind !== 'human') return;
+      runMove(row, col);
+    },
+    [busy, winner, current.id, config.seats, runMove],
+  );
+
+  const [botThinking, setBotThinking] = useState(false);
+  useEffect(() => {
+    if (busy || winner) return;
+    const seatKind = config.seats?.[Number(current.id)] ?? 'human';
+    const level = botLevelOf(seatKind);
+    if (!level) return;
+    const ctrl = new AbortController();
+    setBotThinking(true);
+    askBot({
+      snapshot: engine.snapshot(),
+      config: { rows: config.size, cols: config.size, players: config.players },
+      rootId: current.id,
+      level,
+      signal: ctrl.signal,
+    })
+      .then((res) => {
+        setBotThinking(false);
+        if (ctrl.signal.aborted) return;
+        setTimeout(() => {
+          if (!ctrl.signal.aborted) runMove(res.row, res.col);
+        }, 220);
+      })
+      .catch((e) => {
+        setBotThinking(false);
+        if (e?.name !== 'AbortError') console.error(e);
+      });
+    return () => ctrl.abort();
+  }, [current.id, busy, winner, engine, config, runMove]);
+
+  const playAgain = useCallback(() => {
+    engine.reset();
+    setBoard(JSON.parse(JSON.stringify(engine.board)) as BoardT);
+    setCurrent(engine.currentPlayer());
+    setEliminated(new Set());
+    setWinner(null);
+    setBusy(false);
+  }, [engine]);
+
   return (
-    <Game />
-  )
+    <div className="app" style={{ ['--accent' as string]: current.color }}>
+      <Scene
+        board={board}
+        rows={config.size}
+        cols={config.size}
+        current={current}
+        disabled={busy || !!winner || botThinking || !!botLevelOf(config.seats?.[Number(current.id)] ?? 'human')}
+        onCellClick={handleClick}
+      />
+      <HUD
+        players={engine.players}
+        current={current}
+        counts={counts}
+        eliminated={eliminated}
+        onReset={onExit}
+        statusText={botThinking ? `${current.name} thinking…` : undefined}
+      />
+      {winner && <WinnerModal winner={winner} onPlayAgain={playAgain} />}
+    </div>
+  );
 }
 
-export default App;
+function OnlineGame({
+  room,
+  mySeat,
+  myUid,
+  onExit,
+}: {
+  room: Room;
+  mySeat: number;
+  myUid: string;
+  onExit: () => void;
+}) {
+  const { config } = room;
+  const engineRef = useRef<ChainReaction | null>(null);
+  if (!engineRef.current) {
+    engineRef.current = new ChainReaction({
+      rows: config.rows,
+      cols: config.cols,
+      players: config.players,
+    });
+  }
+  const engine = engineRef.current;
+
+  for (let i = 0; i < config.players; i++) {
+    const seat = room.seats?.[String(i)];
+    if (seat?.name) engine.players[i] = { ...engine.players[i], name: seat.name };
+  }
+
+  const [board, setBoard] = useState<BoardT>(() =>
+    JSON.parse(JSON.stringify(engine.board)) as BoardT,
+  );
+  const [current, setCurrent] = useState<Player>(() => engine.currentPlayer());
+  const [winner, setWinner] = useState<Player | null>(null);
+  const [eliminated, setEliminated] = useState<Set<string>>(new Set());
+  const [busy, setBusy] = useState(false);
+  const appliedRef = useRef(0);
+  const didInitRef = useRef(false);
+  const playPop = useAudioPop();
+
+  const counts = useMemo(() => {
+    const m = new Map<string, number>();
+    for (const row of board) {
+      for (const cell of row) {
+        if (cell.owner) m.set(cell.owner.id, (m.get(cell.owner.id) ?? 0) + cell.atoms.length);
+      }
+    }
+    return m;
+  }, [board]);
+
+  useEffect(() => {
+    const moves = orderedMoves(room);
+    let cancelled = false;
+
+    async function replay() {
+      if (moves.length < appliedRef.current) return;
+
+      // initial catch-up: apply all moves instantly
+      if (!didInitRef.current) {
+        for (let i = 0; i < moves.length; i++) {
+          try {
+            engine.place({ row: moves[i].row, col: moves[i].col });
+          } catch {
+            /* invalid, skip */
+          }
+        }
+        appliedRef.current = moves.length;
+        didInitRef.current = true;
+        setBoard(JSON.parse(JSON.stringify(engine.board)) as BoardT);
+        setCurrent(engine.currentPlayer());
+        setEliminated(new Set(engine.eliminated));
+        return;
+      }
+
+      // animate each new move
+      setBusy(true);
+      for (let i = appliedRef.current; i < moves.length; i++) {
+        if (cancelled) break;
+        try {
+          const res = engine.place({ row: moves[i].row, col: moves[i].col });
+          for (let s = 0; s < res.states.length; s++) {
+            if (cancelled) break;
+            setBoard(res.states[s]);
+            const hasExplode = res.states[s].some((r) => r.some((c) => c.exploded));
+            playPop();
+            await new Promise((r) => setTimeout(r, hasExplode ? EXPLODE_DURATION : PLACE_DURATION));
+          }
+          setEliminated(new Set(engine.eliminated));
+          if (res.winner) setWinner(res.winner);
+          else setCurrent(res.nextPlayer);
+        } catch {
+          /* invalid move, skip */
+        }
+        appliedRef.current = i + 1;
+      }
+      if (!cancelled) setBusy(false);
+    }
+
+    void replay();
+    return () => {
+      cancelled = true;
+    };
+  }, [room, engine, playPop]);
+
+  const handleClick = useCallback(
+    (row: number, col: number) => {
+      if (busy || winner) return;
+      if (engine.currentPlayer().id !== String(mySeat)) return;
+      const seat = room.seats?.[String(mySeat)];
+      pushMove(room.id, {
+        row,
+        col,
+        uid: seat?.uid ?? '',
+        seat: mySeat,
+      }).catch(console.error);
+    },
+    [busy, winner, engine, mySeat, room],
+  );
+
+  const mySeatId = String(mySeat);
+  const myTurn = engine.currentPlayer().id === mySeatId;
+  const statusText = winner
+    ? null
+    : myTurn
+      ? 'Your turn'
+      : `Waiting for ${engine.currentPlayer().name}`;
+
+  const [chatMsgs, setChatMsgs] = useState<Array<ChatMessage & { id: string }>>([]);
+  useEffect(() => {
+    return subscribeChat(room.id, setChatMsgs);
+  }, [room.id]);
+
+  const myName = room.seats?.[mySeatId]?.name ?? 'Player';
+
+  useEffect(() => {
+    if (!room.rematch) return;
+    const votes = room.rematch.votes ?? {};
+    const seatUids = Object.values(room.seats ?? {})
+      .filter(Boolean)
+      .map((s) => s.uid);
+    if (seatUids.length < 2) return;
+    const allYes = seatUids.every((u) => votes[u]);
+    if (allYes) {
+      tryFinalizeRematch(room.id).catch(console.error);
+    }
+  }, [room.rematch, room.seats, room.id]);
+  const onSendChat = useCallback(
+    async (text: string) => {
+      const trimmed = text.trim();
+      if (!trimmed) return;
+      await sendChat(room.id, {
+        uid: myUid,
+        seat: mySeat,
+        name: myName,
+        text: trimmed.slice(0, 240),
+      });
+    },
+    [room.id, myUid, mySeat, myName],
+  );
+
+  return (
+    <div className="app" style={{ ['--accent' as string]: current.color }}>
+      <Scene
+        board={board}
+        rows={config.rows}
+        cols={config.cols}
+        current={current}
+        disabled={!myTurn || busy || !!winner}
+        onCellClick={handleClick}
+      />
+      <HUD
+        players={engine.players}
+        current={current}
+        counts={counts}
+        eliminated={eliminated}
+        onReset={onExit}
+        mineId={mySeatId}
+        statusText={statusText}
+      />
+      <ChatPanel
+        messages={chatMsgs}
+        players={engine.players}
+        myUid={myUid}
+        onSend={onSendChat}
+      />
+      {winner && (() => {
+        const seatUids = Object.values(room.seats ?? {})
+          .filter(Boolean)
+          .map((s) => s.uid);
+        const seatNames: Record<string, string> = {};
+        for (const [idx, s] of Object.entries(room.seats ?? {})) {
+          if (s?.uid) seatNames[s.uid] = engine.players[Number(idx)]?.name ?? s.name;
+        }
+        return (
+          <WinnerModal
+            winner={winner}
+            onPlayAgain={onExit}
+            rematch={{
+              myUid,
+              seatUids,
+              seatNames,
+              votes: room.rematch?.votes ?? {},
+              onVote: () => voteRematch(room.id, myUid).catch(console.error),
+              onCancel: () => {
+                cancelRematch(room.id).catch(() => {});
+                onExit();
+              },
+            }}
+          />
+        );
+      })()}
+    </div>
+  );
+}
+
+type Route =
+  | { kind: 'start' }
+  | { kind: 'local'; config: GameConfig }
+  | { kind: 'online'; roomId: string; mySeat: number };
+
+function parseJoinCodeFromHash(): string | undefined {
+  const h = window.location.hash;
+  const m = h.match(/^#\/room\/([A-Z0-9]+)/i);
+  return m ? m[1].toUpperCase() : undefined;
+}
+
+function roomUrl(roomId: string): string {
+  const { origin, pathname } = window.location;
+  return `${origin}${pathname}#/room/${roomId}`;
+}
+
+function isAdminRoute(): boolean {
+  return (
+    window.location.pathname.startsWith('/secret-admin') ||
+    /^#\/secret-admin\b/.test(window.location.hash)
+  );
+}
+
+export default function App() {
+  const [route, setRoute] = useState<Route>({ kind: 'start' });
+  const [pendingJoin, setPendingJoin] = useState<string | undefined>(() => parseJoinCodeFromHash());
+  const [admin, setAdmin] = useState(() => isAdminRoute());
+
+  useEffect(() => {
+    const onChange = () => setAdmin(isAdminRoute());
+    window.addEventListener('hashchange', onChange);
+    window.addEventListener('popstate', onChange);
+    return () => {
+      window.removeEventListener('hashchange', onChange);
+      window.removeEventListener('popstate', onChange);
+    };
+  }, []);
+  const [uid, setUid] = useState<string | null>(null);
+  const [room, setRoom] = useState<Room | null>(null);
+  const [mySeat, setMySeat] = useState<number>(-1);
+  const [error, setError] = useState<string | null>(null);
+  const [name, setName] = useState<string>(() => {
+    return localStorage.getItem('crName') ?? 'Player';
+  });
+
+  useEffect(() => {
+    ensureAuth().then(setUid).catch((e) => setError(String(e)));
+  }, []);
+
+  useEffect(() => {
+    if (route.kind !== 'online') return;
+    const unsub = subscribeRoom(route.roomId, (r) => {
+      setRoom(r);
+      if (!r) setError('Room closed');
+    });
+    return unsub;
+  }, [route]);
+
+  useEffect(() => {
+    if (route.kind === 'online') {
+      window.history.replaceState(null, '', `#/room/${route.roomId}`);
+    } else if (window.location.hash) {
+      window.history.replaceState(null, '', window.location.pathname);
+    }
+  }, [route]);
+
+  const persistName = (n: string) => {
+    setName(n);
+    localStorage.setItem('crName', n);
+  };
+
+  const onLocal = (players: number, size: number, seats: SeatKind[]) => {
+    setRoute({ kind: 'local', config: { players, size, seats } });
+  };
+
+  const onCreateOnline = async (players: number, size: number, n: string) => {
+    setError(null);
+    persistName(n);
+    try {
+      const u = uid ?? (await ensureAuth());
+      if (!uid) setUid(u);
+      const id = await createRoom(u, n, { rows: size, cols: size, players });
+      setMySeat(0);
+      setRoute({ kind: 'online', roomId: id, mySeat: 0 });
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
+    }
+  };
+
+  const onJoinOnline = async (code: string, n: string) => {
+    setError(null);
+    persistName(n);
+    try {
+      const u = uid ?? (await ensureAuth());
+      if (!uid) setUid(u);
+      const seat = await joinRoom(code, u, n);
+      setMySeat(seat);
+      setPendingJoin(undefined);
+      setRoute({ kind: 'online', roomId: code, mySeat: seat });
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
+    }
+  };
+
+  const exit = () => {
+    setRoute({ kind: 'start' });
+    setRoom(null);
+    setMySeat(-1);
+    setError(null);
+  };
+
+  if (admin) {
+    return (
+      <AdminPage
+        onExit={() => {
+          window.history.replaceState(null, '', '/');
+          setAdmin(false);
+        }}
+      />
+    );
+  }
+
+  if (route.kind === 'local') {
+    return (
+      <LocalGame
+        key={`${route.config.players}-${route.config.size}-${(route.config.seats ?? []).join(',')}`}
+        config={route.config}
+        onExit={exit}
+      />
+    );
+  }
+
+  if (route.kind === 'online') {
+    if (!room) {
+      return (
+        <div className="modal-backdrop">
+          <div className="modal start">
+            <div className="modal-label">Connecting…</div>
+            {error && <div className="sub">{error}</div>}
+            <button className="pill" onClick={exit}>
+              Cancel
+            </button>
+          </div>
+        </div>
+      );
+    }
+    if (room.status === 'lobby') {
+      return (
+        <LobbyScreen
+          room={room}
+          uid={uid ?? ''}
+          shareUrl={roomUrl(room.id)}
+          canStart={room.hostUid === uid}
+          onStart={() => startRoom(room.id).catch(console.error)}
+          onLeave={exit}
+        />
+      );
+    }
+    return (
+      <OnlineGame
+        key={`${room.id}-${room.generation ?? 0}`}
+        room={room}
+        mySeat={mySeat}
+        myUid={uid ?? ''}
+        onExit={exit}
+      />
+    );
+  }
+
+  return (
+    <>
+      <StartScreen
+        defaultName={name}
+        pendingJoinCode={pendingJoin}
+        onLocal={onLocal}
+        onCreateOnline={onCreateOnline}
+        onJoinOnline={onJoinOnline}
+      />
+      {error && <div className="error-toast">{error}</div>}
+    </>
+  );
+}

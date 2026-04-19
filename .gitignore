@@ -10,6 +10,14 @@
 
 # production
 /build
+/dist
+
+# vite / tsc
+*.tsbuildinfo
+
+# firebase
+.firebase/
+firebase-debug.log
 
 # misc
 .DS_Store
