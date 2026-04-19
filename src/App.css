@@ -467,7 +467,8 @@ canvas {
 
 .modal.start {
   padding: 36px 40px 32px;
-  min-width: 380px;
+  width: 420px;
+  max-width: calc(100vw - 32px);
 }
 
 .modal.start .sub {
