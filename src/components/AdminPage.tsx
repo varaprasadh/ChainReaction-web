@@ -159,13 +159,21 @@ interface Props {
 export function AdminPage({ onExit }: Props) {
   const [rooms, setRooms] = useState<Record<string, RoomRaw>>({});
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     const roomsRef = ref(db, 'rooms');
-    const handler = onValue(roomsRef, (snap) => {
-      setRooms((snap.val() as Record<string, RoomRaw>) ?? {});
-      setLoading(false);
-    });
+    const handler = onValue(
+      roomsRef,
+      (snap) => {
+        setRooms((snap.val() as Record<string, RoomRaw>) ?? {});
+        setLoading(false);
+      },
+      (err) => {
+        setError(err.message);
+        setLoading(false);
+      },
+    );
     return () => off(roomsRef, 'value', handler);
   }, []);
 
@@ -183,7 +191,12 @@ export function AdminPage({ onExit }: Props) {
         </button>
       </header>
 
-      {loading ? (
+      {error ? (
+        <div className="admin-empty">
+          Cannot read /rooms — {error}. Add <code>".read": true</code> at the <code>rooms</code>{' '}
+          level in your RTDB rules.
+        </div>
+      ) : loading ? (
         <div className="admin-empty">Loading…</div>
       ) : (
         <>

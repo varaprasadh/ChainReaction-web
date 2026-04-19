@@ -544,19 +544,26 @@ function roomUrl(roomId: string): string {
   return `${origin}${pathname}#/room/${roomId}`;
 }
 
-function isAdminHash(): boolean {
-  return /^#\/secret-admin\b/.test(window.location.hash);
+function isAdminRoute(): boolean {
+  return (
+    window.location.pathname.startsWith('/secret-admin') ||
+    /^#\/secret-admin\b/.test(window.location.hash)
+  );
 }
 
 export default function App() {
   const [route, setRoute] = useState<Route>({ kind: 'start' });
   const [pendingJoin, setPendingJoin] = useState<string | undefined>(() => parseJoinCodeFromHash());
-  const [admin, setAdmin] = useState(() => isAdminHash());
+  const [admin, setAdmin] = useState(() => isAdminRoute());
 
   useEffect(() => {
-    const onHash = () => setAdmin(isAdminHash());
-    window.addEventListener('hashchange', onHash);
-    return () => window.removeEventListener('hashchange', onHash);
+    const onChange = () => setAdmin(isAdminRoute());
+    window.addEventListener('hashchange', onChange);
+    window.addEventListener('popstate', onChange);
+    return () => {
+      window.removeEventListener('hashchange', onChange);
+      window.removeEventListener('popstate', onChange);
+    };
   }, []);
   const [uid, setUid] = useState<string | null>(null);
   const [room, setRoom] = useState<Room | null>(null);
@@ -636,7 +643,7 @@ export default function App() {
     return (
       <AdminPage
         onExit={() => {
-          window.history.replaceState(null, '', window.location.pathname);
+          window.history.replaceState(null, '', '/');
           setAdmin(false);
         }}
       />
