@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import type { SeatKind } from '../App';
+import { HowToPlay } from './HowToPlay';
 
 interface Props {
   defaultName: string;
@@ -32,6 +33,7 @@ export function StartScreen({
   const [name, setName] = useState(defaultName);
   const [opponents, setOpponents] = useState<'humans' | 'bots'>('humans');
   const [botLevel, setBotLevel] = useState<BotDifficulty>('bot-medium');
+  const [showHelp, setShowHelp] = useState(false);
 
   function handleGo() {
     const trimmedName = name.trim() || 'Player';
@@ -197,7 +199,11 @@ export function StartScreen({
         <button className="start-btn" onClick={handleGo}>
           {mode === 'local' ? 'Start' : action === 'create' ? 'Create Room' : 'Join Room'}
         </button>
+        <button className="help-link" onClick={() => setShowHelp(true)}>
+          How to play
+        </button>
       </div>
+      {showHelp && <HowToPlay onClose={() => setShowHelp(false)} />}
     </div>
   );
 }

@@ -1,4 +1,6 @@
+import { useState } from 'react';
 import type { Player } from '../game/types';
+import { HowToPlay } from './HowToPlay';
 
 interface Props {
   players: Player[];
@@ -11,6 +13,7 @@ interface Props {
 }
 
 export function HUD({ players, current, counts, eliminated, onReset, mineId, statusText }: Props) {
+  const [showHelp, setShowHelp] = useState(false);
   return (
     <div className="hud">
       <div className="hud-title">Chain Reaction</div>
@@ -43,10 +46,18 @@ export function HUD({ players, current, counts, eliminated, onReset, mineId, sta
         </div>
       )}
       <div className="actions">
+        <button
+          className="icon-btn"
+          onClick={() => setShowHelp(true)}
+          title="How to play"
+        >
+          ?
+        </button>
         <button className="reset" onClick={onReset}>
           Exit
         </button>
       </div>
+      {showHelp && <HowToPlay onClose={() => setShowHelp(false)} />}
     </div>
   );
 }
