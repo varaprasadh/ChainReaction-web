@@ -243,6 +243,10 @@ canvas {
   z-index: 40;
   animation: fade-in 0.3s ease both;
   overflow-y: auto;
+  overscroll-behavior: contain;
+  touch-action: pan-y;
+  pointer-events: auto;
+  -webkit-overflow-scrolling: touch;
 }
 
 @keyframes fade-in {
@@ -443,32 +447,35 @@ canvas {
   width: 480px;
   max-width: 100%;
   text-align: left;
-  padding: 28px 32px 24px;
+  padding: 28px 32px 64px;
   position: relative;
+  touch-action: pan-y;
 }
 
 .modal-close {
   position: absolute;
-  top: 12px;
-  right: 12px;
-  width: 30px;
-  height: 30px;
+  top: 10px;
+  right: 10px;
+  width: 40px;
+  height: 40px;
   border-radius: 50%;
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  background: rgba(255, 255, 255, 0.05);
-  color: #c7cbe8;
-  font-size: 18px;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  background: rgba(255, 255, 255, 0.08);
+  color: #fff;
+  font-size: 22px;
   line-height: 1;
   cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
   transition: all 0.15s ease;
+  z-index: 2;
+  touch-action: manipulation;
 }
 
-.modal-close:hover {
-  background: rgba(255, 255, 255, 0.12);
-  color: #fff;
+.modal-close:hover,
+.modal-close:active {
+  background: rgba(255, 255, 255, 0.2);
 }
 
 .modal.htp .modal-label {
