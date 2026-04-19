@@ -1,23 +1,39 @@
-# Chain Reaction For WEB
+# Chain Reaction
 
-Chain Reaction is a strategy game for 2 to 8 players in which you must gain access and eliminate others players atoms.Coloured atoms are placed by players in turns one after the other.
+3D strategy game for 2–8 players. Drop atoms onto a grid; overflow a cell and it explodes into its neighbors, stealing them. Last player with atoms wins.
 
-Corner cells can accommodate maximum of one atom .
+Play: **https://chain-reaction3d.web.app**
 
-Edge/side cells can accommodate maximum of two atoms.
+## Modes
 
-Other cells can accommodate maximum of three atoms.
+- **Local** — hotseat on one device with humans or a bot (Easy / Medium / Hard).
+- **Online** — create or join a room with a short code, share the link, chat inside the match.
+- **Rematch** — after a game everyone votes to replay in the same room.
+- **Share** — post the winning board (PNG + text) to any app on mobile, or copy the link on desktop.
 
-If you try to insert an extra atom than capacity of cell,it explodes giving adjacent cells one atom each and colour of adjacent cell atoms will be changed to yours.If adjacent cells are already full then they will in turn explode and chain reaction will continue until all cells are stable.
+## Rules
 
-A player may only place their atoms in a empty cell or a cell that contains atoms of their own colour.When the player loses all their atoms,they are out of game.The one who stands till last is winner.
+- Corner cells hold 1 atom, edge cells 2, middle cells 3.
+- Drop on empty cells or on your own color.
+- Exceeding a cell's capacity makes it explode: one atom flies to each neighbor, and those cells become yours.
+- Explosions can cascade into long chain reactions.
+- Lose all your atoms → you're eliminated.
 
-Excellent sound effects and animation.
+The in-game **How to play** button walks through all of this with an infographic.
 
+## Run locally
 
+```
+npm install
+npm run dev
+```
 
-## TODO
+Then open http://localhost:3001.
 
--  get rid of eliminated players
--  fix rotation animations of compounds
-- 
+## Deploy
+
+```
+npm run deploy
+```
+
+Requires a one-time `npx firebase-tools login`. Deploys the built site to Firebase Hosting.
