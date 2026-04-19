@@ -437,6 +437,20 @@ canvas {
   margin-bottom: 8px;
 }
 
+.inline-toast {
+  margin-top: 14px;
+  background: rgba(102, 224, 122, 0.18);
+  border: 1px solid rgba(102, 224, 122, 0.5);
+  color: #b6f7c0;
+  padding: 8px 14px;
+  border-radius: 999px;
+  font-size: 12px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  font-weight: 600;
+  animation: fade-in 0.2s ease;
+}
+
 .winner-ring {
   width: 70px;
   height: 70px;

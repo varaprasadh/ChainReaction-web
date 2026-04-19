@@ -121,20 +121,22 @@ export function StartScreen({
 
         {(mode === 'local' || action === 'create') && (
           <>
-            <div className="field">
-              <label>Players</label>
-              <div className="pill-row">
-                {[2, 3, 4, 5, 6, 7, 8].map((n) => (
-                  <button
-                    key={n}
-                    className={`pill${n === players ? ' active' : ''}`}
-                    onClick={() => setPlayers(n)}
-                  >
-                    {n}
-                  </button>
-                ))}
+            {!(mode === 'local' && opponents === 'bots') && (
+              <div className="field">
+                <label>Players</label>
+                <div className="pill-row">
+                  {[2, 3, 4, 5, 6, 7, 8].map((n) => (
+                    <button
+                      key={n}
+                      className={`pill${n === players ? ' active' : ''}`}
+                      onClick={() => setPlayers(n)}
+                    >
+                      {n}
+                    </button>
+                  ))}
+                </div>
               </div>
-            </div>
+            )}
             <div className="field">
               <label>Board</label>
               <div className="pill-row">
@@ -162,9 +164,12 @@ export function StartScreen({
                     </button>
                     <button
                       className={`seg${opponents === 'bots' ? ' active' : ''}`}
-                      onClick={() => setOpponents('bots')}
+                      onClick={() => {
+                        setOpponents('bots');
+                        setPlayers(2);
+                      }}
                     >
-                      Bots
+                      Bot (1v1)
                     </button>
                   </div>
                 </div>

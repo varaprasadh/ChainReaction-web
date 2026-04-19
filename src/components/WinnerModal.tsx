@@ -1,7 +1,12 @@
 import { useState } from 'react';
 import type { Player } from '../game/types';
-import { captureBoardBlob } from '../utils/share';
-import { ShareSheet } from './ShareSheet';
+import {
+  APP_URL,
+  composeShareImage,
+  copyShareLink,
+  nativeShare,
+  shareText,
+} from '../utils/share';
 
 interface RematchState {
   myUid: string;
@@ -25,84 +30,88 @@ export function WinnerModal({ winner, onPlayAgain, primaryLabel = 'Play again', 
   const total = rematch?.seatUids.length ?? 0;
 
   const [sharing, setSharing] = useState(false);
-  const [shareBlob, setShareBlob] = useState<Blob | null>(null);
-  const [showSheet, setShowSheet] = useState(false);
+  const [toast, setToast] = useState<string | null>(null);
+
+  function flashToast(msg: string) {
+    setToast(msg);
+    window.setTimeout(() => setToast((curr) => (curr === msg ? null : curr)), 2000);
+  }
 
   async function handleShare() {
     if (sharing) return;
     setSharing(true);
-    const blob = await captureBoardBlob();
-    setShareBlob(blob);
-    setShowSheet(true);
+    const blob = await composeShareImage({
+      winnerName: winner.name,
+      winnerColor: winner.color,
+    });
+    const text = shareText(winner.name);
+    const result = await nativeShare(blob, text, APP_URL);
+    if (result === 'unsupported' || result === 'failed') {
+      const copied = await copyShareLink(text, APP_URL);
+      flashToast(copied ? 'Link copied' : 'Copy failed');
+    }
     setSharing(false);
   }
 
   return (
-    <>
-      <div className="modal-backdrop">
-        <div className="modal" style={{ boxShadow: `0 0 80px ${winner.color}` }}>
-          <div className="winner-ring" style={{ background: winner.color }} />
-          <div className="modal-label">Winner</div>
-          <div className="modal-name" style={{ color: winner.color }}>
-            {winner.name}
-          </div>
+    <div className="modal-backdrop">
+      <div className="modal" style={{ boxShadow: `0 0 80px ${winner.color}` }}>
+        <div className="winner-ring" style={{ background: winner.color }} />
+        <div className="modal-label">Winner</div>
+        <div className="modal-name" style={{ color: winner.color }}>
+          {winner.name}
+        </div>
 
-          {rematch ? (
-            <>
-              {voted ? (
-                <div className="rematch-status">
-                  Waiting for rematch… {agreed}/{total} ready
-                  <div className="rematch-dots">
-                    {rematch.seatUids.map((uid) => (
-                      <span
-                        key={uid}
-                        className={`rematch-dot${rematch.votes[uid] ? ' on' : ''}`}
-                        title={rematch.seatNames[uid] ?? 'Player'}
-                      />
-                    ))}
-                  </div>
+        {rematch ? (
+          <>
+            {voted ? (
+              <div className="rematch-status">
+                Waiting for rematch… {agreed}/{total} ready
+                <div className="rematch-dots">
+                  {rematch.seatUids.map((uid) => (
+                    <span
+                      key={uid}
+                      className={`rematch-dot${rematch.votes[uid] ? ' on' : ''}`}
+                      title={rematch.seatNames[uid] ?? 'Player'}
+                    />
+                  ))}
                 </div>
-              ) : (
-                <div className="sub" style={{ marginBottom: 18 }}>
-                  {rematch.votes && Object.keys(rematch.votes).length > 0
-                    ? 'Someone wants a rematch.'
-                    : 'Up for another round?'}
-                </div>
-              )}
-              <div className="modal-actions">
-                <button
-                  onClick={voted ? rematch.onCancel : rematch.onVote}
-                  style={{ background: voted ? '#6a6f92' : winner.color }}
-                >
-                  {voted ? 'Cancel' : 'Rematch'}
-                </button>
-                <button className="ghost-btn" onClick={handleShare} disabled={sharing}>
-                  {sharing ? 'Capturing…' : 'Share'}
-                </button>
-                <button className="ghost-btn" onClick={rematch.onCancel}>
-                  Exit
-                </button>
               </div>
-            </>
-          ) : (
+            ) : (
+              <div className="sub" style={{ marginBottom: 18 }}>
+                {rematch.votes && Object.keys(rematch.votes).length > 0
+                  ? 'Someone wants a rematch.'
+                  : 'Up for another round?'}
+              </div>
+            )}
             <div className="modal-actions">
-              <button onClick={onPlayAgain} style={{ background: winner.color }}>
-                {primaryLabel}
+              <button
+                onClick={voted ? rematch.onCancel : rematch.onVote}
+                style={{ background: voted ? '#6a6f92' : winner.color }}
+              >
+                {voted ? 'Cancel' : 'Rematch'}
               </button>
               <button className="ghost-btn" onClick={handleShare} disabled={sharing}>
-                {sharing ? 'Capturing…' : 'Share'}
+                {sharing ? 'Preparing…' : 'Share'}
+              </button>
+              <button className="ghost-btn" onClick={rematch.onCancel}>
+                Exit
               </button>
             </div>
-          )}
-        </div>
+          </>
+        ) : (
+          <div className="modal-actions">
+            <button onClick={onPlayAgain} style={{ background: winner.color }}>
+              {primaryLabel}
+            </button>
+            <button className="ghost-btn" onClick={handleShare} disabled={sharing}>
+              {sharing ? 'Preparing…' : 'Share'}
+            </button>
+          </div>
+        )}
+
+        {toast && <div className="inline-toast">{toast}</div>}
       </div>
-      {showSheet && (
-        <ShareSheet
-          blob={shareBlob}
-          winnerName={winner.name}
-          onClose={() => setShowSheet(false)}
-        />
-      )}
-    </>
+    </div>
   );
 }
