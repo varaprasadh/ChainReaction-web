@@ -113,8 +113,11 @@ function CaptureSeq() {
 
 export function HowToPlay({ onClose }: Props) {
   return (
-    <div className="modal-backdrop" onClick={onClose}>
-      <div className="modal htp" onClick={(e) => e.stopPropagation()}>
+    <div className="modal-backdrop">
+      <div className="modal htp">
+        <button className="modal-close" onClick={onClose} aria-label="Close">
+          ×
+        </button>
         <div className="modal-label">How to play</div>
 
         <div className="htp-section">

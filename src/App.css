@@ -232,15 +232,17 @@ canvas {
 }
 
 .modal-backdrop {
-  position: absolute;
+  position: fixed;
   inset: 0;
   display: flex;
   align-items: center;
   justify-content: center;
-  background: rgba(3, 4, 14, 0.6);
+  padding: 20px;
+  background: rgba(3, 4, 14, 0.72);
   backdrop-filter: blur(10px);
-  z-index: 20;
+  z-index: 40;
   animation: fade-in 0.3s ease both;
+  overflow-y: auto;
 }
 
 @keyframes fade-in {
@@ -439,11 +441,34 @@ canvas {
 
 .modal.htp {
   width: 480px;
-  max-width: calc(100vw - 32px);
-  max-height: calc(100vh - 40px);
-  overflow-y: auto;
+  max-width: 100%;
   text-align: left;
   padding: 28px 32px 24px;
+  position: relative;
+}
+
+.modal-close {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.05);
+  color: #c7cbe8;
+  font-size: 18px;
+  line-height: 1;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s ease;
+}
+
+.modal-close:hover {
+  background: rgba(255, 255, 255, 0.12);
+  color: #fff;
 }
 
 .modal.htp .modal-label {
