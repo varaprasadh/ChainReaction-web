@@ -1,0 +1,5 @@
+User-agent: *
+Allow: /
+Disallow: /secret-admin
+
+Sitemap: https://chain-reaction3d.web.app/sitemap.xml

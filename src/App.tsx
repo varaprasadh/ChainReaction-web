@@ -9,6 +9,7 @@ import { Atom, OFFSETS, cellToWorld } from './components/Atom';
 import { HUD } from './components/HUD';
 import { WinnerModal } from './components/WinnerModal';
 import { StartScreen } from './components/StartScreen';
+import { LandingPage } from './components/LandingPage';
 import { LobbyScreen } from './components/LobbyScreen';
 import bubbleAudio from './assets/audio/bubble.mp3';
 import { ensureAuth } from './net/firebase';
@@ -560,6 +561,7 @@ function isAdminRoute(): boolean {
 
 export default function App() {
   const [route, setRoute] = useState<Route>({ kind: 'start' });
+  const [showStart, setShowStart] = useState(false);
   const [pendingJoin, setPendingJoin] = useState<string | undefined>(() => parseJoinCodeFromHash());
   const [admin, setAdmin] = useState(() => isAdminRoute());
 
@@ -641,10 +643,15 @@ export default function App() {
 
   const exit = () => {
     setRoute({ kind: 'start' });
+    setShowStart(false);
     setRoom(null);
     setMySeat(-1);
     setError(null);
   };
+
+  useEffect(() => {
+    if (pendingJoin) setShowStart(true);
+  }, [pendingJoin]);
 
   if (admin) {
     return (
@@ -706,13 +713,17 @@ export default function App() {
 
   return (
     <>
-      <StartScreen
-        defaultName={name}
-        pendingJoinCode={pendingJoin}
-        onLocal={onLocal}
-        onCreateOnline={onCreateOnline}
-        onJoinOnline={onJoinOnline}
-      />
+      <LandingPage onPlay={() => setShowStart(true)} />
+      {showStart && (
+        <StartScreen
+          defaultName={name}
+          pendingJoinCode={pendingJoin}
+          onLocal={onLocal}
+          onCreateOnline={onCreateOnline}
+          onJoinOnline={onJoinOnline}
+          onClose={() => setShowStart(false)}
+        />
+      )}
       {error && <div className="error-toast">{error}</div>}
     </>
   );

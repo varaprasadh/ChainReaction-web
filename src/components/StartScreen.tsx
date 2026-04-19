@@ -7,6 +7,7 @@ interface Props {
   onLocal: (playerCount: number, size: number, seats: SeatKind[]) => void;
   onCreateOnline: (playerCount: number, size: number, name: string) => void;
   onJoinOnline: (code: string, name: string) => void;
+  onClose?: () => void;
   pendingJoinCode?: string;
 }
 
@@ -23,6 +24,7 @@ export function StartScreen({
   onLocal,
   onCreateOnline,
   onJoinOnline,
+  onClose,
   pendingJoinCode,
 }: Props) {
   const [players, setPlayers] = useState(2);
@@ -54,6 +56,11 @@ export function StartScreen({
   return (
     <div className="modal-backdrop">
       <div className="modal start">
+        {onClose && (
+          <button className="modal-close" onClick={onClose} aria-label="Close">
+            ×
+          </button>
+        )}
         <div className="modal-label">Chain Reaction</div>
         <div className="sub">
           Place atoms. Overflow a cell → chain reaction. Last one standing wins.

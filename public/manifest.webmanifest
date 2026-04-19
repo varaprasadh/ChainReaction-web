@@ -1,0 +1,14 @@
+{
+  "name": "Chain Reaction",
+  "short_name": "Chain Reaction",
+  "description": "3D strategy for 2–8 players. Drop atoms, overflow cells, detonate the board.",
+  "start_url": "/",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#05060f",
+  "theme_color": "#05060f",
+  "categories": ["games", "strategy", "entertainment"],
+  "icons": [
+    { "src": "/og-image.png", "sizes": "1200x630", "type": "image/png", "purpose": "any" }
+  ]
+}
