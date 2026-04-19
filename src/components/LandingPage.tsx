@@ -97,9 +97,6 @@ export function LandingPage({ onPlay }: Props) {
 
       <footer className="landing-footer">
         <span>© Chain Reaction · web</span>
-        <a href="/secret-admin" className="nav-link">
-          Admin
-        </a>
       </footer>
 
       {showHelp && <HowToPlay onClose={() => setShowHelp(false)} />}
