@@ -28,6 +28,7 @@ import {
   type Room,
 } from './net/room';
 import { ChatPanel } from './components/ChatPanel';
+import { AdminPage } from './components/AdminPage';
 import './App.css';
 
 const EXPLODE_DURATION = 420;
@@ -543,9 +544,20 @@ function roomUrl(roomId: string): string {
   return `${origin}${pathname}#/room/${roomId}`;
 }
 
+function isAdminHash(): boolean {
+  return /^#\/secret-admin\b/.test(window.location.hash);
+}
+
 export default function App() {
   const [route, setRoute] = useState<Route>({ kind: 'start' });
   const [pendingJoin, setPendingJoin] = useState<string | undefined>(() => parseJoinCodeFromHash());
+  const [admin, setAdmin] = useState(() => isAdminHash());
+
+  useEffect(() => {
+    const onHash = () => setAdmin(isAdminHash());
+    window.addEventListener('hashchange', onHash);
+    return () => window.removeEventListener('hashchange', onHash);
+  }, []);
   const [uid, setUid] = useState<string | null>(null);
   const [room, setRoom] = useState<Room | null>(null);
   const [mySeat, setMySeat] = useState<number>(-1);
@@ -619,6 +631,17 @@ export default function App() {
     setMySeat(-1);
     setError(null);
   };
+
+  if (admin) {
+    return (
+      <AdminPage
+        onExit={() => {
+          window.history.replaceState(null, '', window.location.pathname);
+          setAdmin(false);
+        }}
+      />
+    );
+  }
 
   if (route.kind === 'local') {
     return (
