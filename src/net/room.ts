@@ -95,24 +95,35 @@ export async function joinRoom(
   const roomRef = ref(db, `rooms/${id}`);
   const snap = await get(roomRef);
   if (!snap.exists()) throw new Error('Room not found');
-  const room = snap.val() as Room;
+  const room = snap.val() as Omit<Room, 'id'>;
   if (room.status === 'ended') throw new Error('Room has ended');
   if (room.kicked?.[uid]) throw new Error('You were removed from this room');
 
-  for (const [idx, seat] of Object.entries(room.seats ?? {})) {
-    if (seat?.uid === uid) return Number(idx);
+  let assignedSeat = -1;
+  const seatsRef = ref(db, `rooms/${id}/seats`);
+  const res = await runTransaction(seatsRef, (curr) => {
+    const seats = (curr ?? {}) as Record<string, Seat>;
+    for (const [idx, seat] of Object.entries(seats)) {
+      if (seat?.uid === uid) {
+        assignedSeat = Number(idx);
+        return seats;
+      }
+    }
+    if (room.status !== 'lobby') return;
+    for (let i = 0; i < room.config.players; i++) {
+      if (!seats[String(i)]) {
+        seats[String(i)] = { uid, name };
+        assignedSeat = i;
+        return seats;
+      }
+    }
+    return;
+  });
+  if (!res.committed || assignedSeat < 0) {
+    if (room.status !== 'lobby') throw new Error('Game already started');
+    throw new Error('Room is full');
   }
-  if (room.status !== 'lobby') throw new Error('Game already started');
-
-  for (let i = 0; i < room.config.players; i++) {
-    const seatRef = ref(db, `rooms/${id}/seats/${i}`);
-    const res = await runTransaction(seatRef, (curr) => {
-      if (curr) return;
-      return { uid, name };
-    });
-    if (res.committed) return i;
-  }
-  throw new Error('Room is full');
+  return assignedSeat;
 }
 
 export function subscribeRoom(id: string, cb: (room: Room | null) => void): () => void {

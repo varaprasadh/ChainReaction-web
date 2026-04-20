@@ -5,8 +5,8 @@ import { HowToPlay } from './HowToPlay';
 interface Props {
   defaultName: string;
   onLocal: (playerCount: number, size: number, seats: SeatKind[]) => void;
-  onCreateOnline: (playerCount: number, size: number, name: string) => void;
-  onJoinOnline: (code: string, name: string) => void;
+  onCreateOnline: (playerCount: number, size: number, name: string) => void | Promise<void>;
+  onJoinOnline: (code: string, name: string) => void | Promise<void>;
   onClose?: () => void;
   pendingJoinCode?: string;
 }
@@ -36,8 +36,10 @@ export function StartScreen({
   const [opponents, setOpponents] = useState<'humans' | 'bots'>('humans');
   const [botLevel, setBotLevel] = useState<BotDifficulty>('bot-medium');
   const [showHelp, setShowHelp] = useState(false);
+  const [busy, setBusy] = useState(false);
 
-  function handleGo() {
+  async function handleGo() {
+    if (busy) return;
     const trimmedName = name.trim() || 'Player';
     if (mode === 'local') {
       const seats: SeatKind[] = Array.from({ length: players }, (_, i) =>
@@ -46,10 +48,15 @@ export function StartScreen({
       onLocal(players, size, seats);
       return;
     }
-    if (action === 'create') {
-      onCreateOnline(players, size, trimmedName);
-    } else {
-      onJoinOnline(code.trim().toUpperCase(), trimmedName);
+    setBusy(true);
+    try {
+      if (action === 'create') {
+        await onCreateOnline(players, size, trimmedName);
+      } else {
+        await onJoinOnline(code.trim().toUpperCase(), trimmedName);
+      }
+    } finally {
+      setBusy(false);
     }
   }
 
@@ -203,8 +210,16 @@ export function StartScreen({
           </>
         )}
 
-        <button className="start-btn" onClick={handleGo}>
-          {mode === 'local' ? 'Start' : action === 'create' ? 'Create Room' : 'Join Room'}
+        <button className="start-btn" onClick={handleGo} disabled={busy}>
+          {busy
+            ? action === 'create'
+              ? 'Creating…'
+              : 'Joining…'
+            : mode === 'local'
+              ? 'Start'
+              : action === 'create'
+                ? 'Create Room'
+                : 'Join Room'}
         </button>
         <button className="help-link" onClick={() => setShowHelp(true)}>
           How to play
