@@ -35,6 +35,7 @@ import {
 } from './net/room';
 import { ChatPanel } from './components/ChatPanel';
 import { ReactionBar } from './components/ReactionBar';
+import { ReactionToasts } from './components/ReactionToasts';
 import { AdminPage } from './components/AdminPage';
 import './App.css';
 
@@ -483,13 +484,6 @@ function OnlineGame({
     return subscribeReactions(room.id, setReactions);
   }, [room.id]);
 
-  const visibleReactions = useMemo(() => {
-    const now = Date.now();
-    return reactions
-      .filter((r) => now - r.ts < 2500)
-      .map(({ id, seat, emoji }) => ({ id, seat, emoji }));
-  }, [reactions]);
-
   const onReact = useCallback(
     async (emoji: string) => {
       try {
@@ -557,9 +551,9 @@ function OnlineGame({
           if (!window.confirm(`Remove ${engine.players[seatIdx]?.name ?? 'player'}?`)) return;
           kickPlayer(room.id, seatIdx).catch(console.error);
         }}
-        reactions={visibleReactions}
       />
       <ReactionBar onReact={onReact} disabled={!!winner} />
+      <ReactionToasts reactions={reactions} players={engine.players} />
       <ChatPanel
         messages={chatMsgs}
         players={engine.players}

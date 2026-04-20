@@ -12,10 +12,9 @@ interface Props {
   statusText?: string | null;
   isHost?: boolean;
   onKick?: (seatIdx: number) => void;
-  reactions?: Array<{ id: string; seat: number; emoji: string }>;
 }
 
-export function HUD({ players, current, counts, eliminated, onReset, mineId, statusText, isHost, onKick, reactions }: Props) {
+export function HUD({ players, current, counts, eliminated, onReset, mineId, statusText, isHost, onKick }: Props) {
   const [showHelp, setShowHelp] = useState(false);
   return (
     <div className="hud">
@@ -47,13 +46,6 @@ export function HUD({ players, current, counts, eliminated, onReset, mineId, sta
                   ×
                 </button>
               )}
-              {reactions
-                ?.filter((r) => r.seat === Number(p.id))
-                .map((r) => (
-                  <span key={r.id} className="reaction-float" aria-hidden>
-                    {r.emoji}
-                  </span>
-                ))}
             </div>
           );
         })}
