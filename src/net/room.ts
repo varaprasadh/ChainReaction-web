@@ -47,7 +47,13 @@ export interface Room {
   createdAt: number;
   generation?: number;
   rematch?: Rematch | null;
+  kicked?: Record<string, number>;
+  forfeits?: Record<string, number>;
 }
+
+export type RoomEvent =
+  | { kind: 'move'; move: MoveRecord }
+  | { kind: 'forfeit'; seat: number; ts: number };
 
 const CODE_ALPHABET = 'ABCDEFGHJKMNPQRSTVWXYZ23456789';
 
@@ -91,6 +97,7 @@ export async function joinRoom(
   if (!snap.exists()) throw new Error('Room not found');
   const room = snap.val() as Room;
   if (room.status === 'ended') throw new Error('Room has ended');
+  if (room.kicked?.[uid]) throw new Error('You were removed from this room');
 
   for (const [idx, seat] of Object.entries(room.seats ?? {})) {
     if (seat?.uid === uid) return Number(idx);
@@ -124,11 +131,57 @@ export function subscribeRoom(id: string, cb: (room: Room | null) => void): () =
 }
 
 export async function startRoom(id: string): Promise<void> {
-  await update(ref(db, `rooms/${id}`), { status: 'playing' });
+  const roomRef = ref(db, `rooms/${id}`);
+  const snap = await get(roomRef);
+  if (!snap.exists()) return;
+  const room = snap.val() as Omit<Room, 'id'>;
+  const updates: Record<string, unknown> = { status: 'playing' };
+  const ts = Date.now();
+  const forfeits: Record<string, number> = {};
+  for (let i = 0; i < room.config.players; i++) {
+    if (!room.seats?.[String(i)]) forfeits[String(i)] = ts;
+  }
+  if (Object.keys(forfeits).length > 0) updates.forfeits = forfeits;
+  await update(roomRef, updates);
 }
 
 export async function endRoom(id: string): Promise<void> {
   await update(ref(db, `rooms/${id}`), { status: 'ended' });
+}
+
+export async function kickPlayer(id: string, seatIdx: number): Promise<void> {
+  const roomRef = ref(db, `rooms/${id}`);
+  const snap = await get(roomRef);
+  if (!snap.exists()) return;
+  const room = snap.val() as Omit<Room, 'id'>;
+  const seat = room.seats?.[String(seatIdx)];
+  if (!seat) return;
+  const updates: Record<string, unknown> = {
+    [`kicked/${seat.uid}`]: Date.now(),
+  };
+  if (room.status === 'lobby') {
+    updates[`seats/${seatIdx}`] = null;
+  } else if (room.status === 'playing') {
+    updates[`forfeits/${seatIdx}`] = Date.now();
+  }
+  await update(roomRef, updates);
+}
+
+export function orderedEvents(room: Room): RoomEvent[] {
+  const events: RoomEvent[] = [];
+  const moves = room.moves ?? {};
+  for (const k of Object.keys(moves).sort()) {
+    events.push({ kind: 'move', move: moves[k] });
+  }
+  for (const [idx, ts] of Object.entries(room.forfeits ?? {})) {
+    events.push({ kind: 'forfeit', seat: Number(idx), ts: Number(ts) });
+  }
+  events.sort((a, b) => {
+    const ta = a.kind === 'move' ? a.move.ts : a.ts;
+    const tb = b.kind === 'move' ? b.move.ts : b.ts;
+    return ta - tb;
+  });
+  return events;
 }
 
 export async function pushMove(
@@ -161,6 +214,8 @@ export async function tryFinalizeRematch(id: string): Promise<void> {
   await update(ref(db, `rooms/${id}`), {
     moves: null,
     rematch: null,
+    forfeits: null,
+    reactions: null,
   });
 }
 
@@ -177,6 +232,44 @@ export interface ChatMessage {
   name: string;
   text: string;
   ts: number;
+}
+
+export interface Reaction {
+  uid: string;
+  seat: number;
+  emoji: string;
+  ts: number;
+}
+
+export async function sendReaction(
+  id: string,
+  r: Omit<Reaction, 'ts'>,
+): Promise<string> {
+  const listRef = ref(db, `rooms/${id}/reactions`);
+  const res = await push(listRef, { ...r, ts: Date.now() });
+  return res.key ?? '';
+}
+
+export async function removeReaction(id: string, rid: string): Promise<void> {
+  if (!rid) return;
+  await remove(ref(db, `rooms/${id}/reactions/${rid}`));
+}
+
+export function subscribeReactions(
+  id: string,
+  cb: (reactions: Array<Reaction & { id: string }>) => void,
+): () => void {
+  const reactionsRef = ref(db, `rooms/${id}/reactions`);
+  const handler = onValue(reactionsRef, (snap) => {
+    const val = (snap.val() as Record<string, Reaction>) ?? {};
+    const items = Object.keys(val)
+      .sort()
+      .map((k) => ({ id: k, ...val[k] }));
+    cb(items);
+  });
+  return () => {
+    off(reactionsRef, 'value', handler);
+  };
 }
 
 export async function sendChat(

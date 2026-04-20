@@ -236,6 +236,37 @@ export class ChainReaction {
     };
   }
 
+  forfeit(playerId: string): { winner: Player | null } {
+    if (this.eliminated.has(playerId)) return { winner: null };
+    const player = this.players.find((p) => p.id === playerId);
+    if (!player) return { winner: null };
+
+    for (const row of this.board) {
+      for (const cell of row) {
+        if (cell.owner?.id === playerId) {
+          cell.owner = null;
+          cell.atoms = [];
+        }
+      }
+    }
+    this.eliminated.add(playerId);
+    this.moved.add(playerId);
+
+    if (this.currentPlayer().id === playerId) {
+      for (let i = 1; i <= this.players.length; i++) {
+        const nextIdx = (this.currentIdx + i) % this.players.length;
+        if (!this.eliminated.has(this.players[nextIdx].id)) {
+          this.currentIdx = nextIdx;
+          break;
+        }
+      }
+    }
+
+    const active = this.activePlayers();
+    const gameOver = this.moved.size >= 2 && active.length <= 1;
+    return { winner: gameOver ? active[0] ?? null : null };
+  }
+
   private onlyOneOwnerLeft(): boolean {
     const set = new Set<string>();
     for (const row of this.board) {

@@ -992,7 +992,7 @@ canvas {
   overflow-x: hidden;
 }
 
-.modal-close {
+.modal button.modal-close {
   position: absolute;
   top: 10px;
   right: 10px;
@@ -1003,6 +1003,10 @@ canvas {
   background: rgba(255, 255, 255, 0.08);
   color: #fff;
   font-size: 22px;
+  font-weight: 400;
+  text-transform: none;
+  letter-spacing: 0;
+  padding: 0;
   line-height: 1;
   cursor: pointer;
   display: flex;
@@ -1013,32 +1017,56 @@ canvas {
   touch-action: manipulation;
 }
 
-.modal-close:hover,
-.modal-close:active {
+.modal button.modal-close:hover,
+.modal button.modal-close:active {
   background: rgba(255, 255, 255, 0.2);
+  transform: none;
+  box-shadow: none;
 }
 
 .modal.htp .modal-label {
   text-align: center;
 }
 
-.help-link {
-  display: block;
-  width: 100%;
-  background: transparent;
-  border: none;
-  color: #8a8fb5;
-  font-size: 12px;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-  margin-top: 12px;
-  padding: 6px;
-  cursor: pointer;
-  transition: color 0.15s ease;
+.kicked-backdrop {
+  z-index: 1000;
 }
 
-.help-link:hover {
+.kicked-modal {
+  text-align: center;
+  max-width: 360px;
+}
+
+.kicked-modal .sub {
+  margin: 8px 0 20px;
+}
+
+.modal button.help-link {
+  display: inline-block;
+  align-self: center;
+  background: transparent;
+  border: none;
+  border-radius: 0;
   color: #fff;
+  font-size: 13px;
+  font-weight: 500;
+  letter-spacing: 0.02em;
+  text-transform: none;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  text-decoration-color: rgba(255, 255, 255, 0.6);
+  margin: 14px auto 0;
+  padding: 4px 8px;
+  cursor: pointer;
+  transition: color 0.15s ease, text-decoration-color 0.15s ease;
+  box-shadow: none;
+}
+
+.modal button.help-link:hover {
+  color: #fff;
+  text-decoration-color: #fff;
+  transform: none;
+  box-shadow: none;
 }
 
 .htp-section {
@@ -1527,6 +1555,46 @@ canvas {
   background: color-mix(in srgb, currentColor 8%, rgba(10, 12, 26, 0.7));
 }
 
+.seat .name {
+  flex: 1;
+}
+
+.kick-btn {
+  margin-left: auto;
+  flex: 0 0 24px;
+  width: 24px;
+  height: 24px;
+  aspect-ratio: 1;
+  border-radius: 50%;
+  border: 1px solid rgba(255, 59, 107, 0.6);
+  background: #fff;
+  color: #ff3b6b;
+  font-size: 18px;
+  font-weight: 700;
+  line-height: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  padding: 0;
+  transition: all 0.15s ease;
+}
+
+.kick-btn:hover {
+  background: #ff3b6b;
+  color: #fff;
+  border-color: #ff3b6b;
+  box-shadow: 0 0 12px rgba(255, 59, 107, 0.6);
+}
+
+.player .kick-btn {
+  margin-left: 2px;
+  width: 20px;
+  height: 20px;
+  flex-basis: 20px;
+  font-size: 15px;
+}
+
 .share-row {
   display: flex;
   gap: 8px;
@@ -1963,6 +2031,89 @@ canvas {
     right: max(10px, env(safe-area-inset-right));
     bottom: calc(max(10px, env(safe-area-inset-bottom)) + 58px);
     max-width: 70%;
+  }
+}
+
+.reaction-bar {
+  position: fixed;
+  left: 50%;
+  bottom: max(18px, env(safe-area-inset-bottom));
+  transform: translateX(-50%);
+  display: flex;
+  gap: 6px;
+  padding: 6px 8px;
+  background: rgba(10, 12, 26, 0.7);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 999px;
+  backdrop-filter: blur(10px);
+  z-index: 20;
+  pointer-events: auto;
+}
+
+.reaction-btn {
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  font-size: 20px;
+  line-height: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  transition: transform 0.12s ease, background 0.15s ease;
+}
+
+.reaction-btn:hover {
+  background: rgba(255, 255, 255, 0.08);
+  transform: scale(1.12);
+}
+
+.reaction-btn:active {
+  transform: scale(0.95);
+}
+
+.reaction-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.reaction-float {
+  position: absolute;
+  left: 50%;
+  top: -4px;
+  font-size: 22px;
+  pointer-events: none;
+  animation: reaction-float-up 2.2s ease-out forwards;
+  text-shadow: 0 2px 8px rgba(0, 0, 0, 0.6);
+}
+
+@keyframes reaction-float-up {
+  0% {
+    opacity: 0;
+    transform: translate(-50%, 0) scale(0.6);
+  }
+  15% {
+    opacity: 1;
+    transform: translate(-50%, -14px) scale(1.2);
+  }
+  100% {
+    opacity: 0;
+    transform: translate(-50%, -56px) scale(1);
+  }
+}
+
+@media (max-width: 640px) {
+  .reaction-bar {
+    gap: 2px;
+    padding: 4px 6px;
+  }
+  .reaction-btn {
+    width: 34px;
+    height: 34px;
+    font-size: 18px;
   }
 }
 

@@ -17,18 +17,24 @@ import {
   cancelRematch,
   createRoom,
   joinRoom,
-  orderedMoves,
+  kickPlayer,
+  orderedEvents,
   pushMove,
+  removeReaction,
   sendChat,
+  sendReaction,
   startRoom,
   subscribeChat,
+  subscribeReactions,
   subscribeRoom,
   tryFinalizeRematch,
   voteRematch,
   type ChatMessage,
+  type Reaction,
   type Room,
 } from './net/room';
 import { ChatPanel } from './components/ChatPanel';
+import { ReactionBar } from './components/ReactionBar';
 import { AdminPage } from './components/AdminPage';
 import './App.css';
 
@@ -349,6 +355,7 @@ function OnlineGame({
     const seat = room.seats?.[String(i)];
     if (seat?.name) engine.players[i] = { ...engine.players[i], name: seat.name };
   }
+  const visiblePlayers = engine.players.filter((_, i) => !!room.seats?.[String(i)]);
 
   const [board, setBoard] = useState<BoardT>(() =>
     JSON.parse(JSON.stringify(engine.board)) as BoardT,
@@ -372,47 +379,65 @@ function OnlineGame({
   }, [board]);
 
   useEffect(() => {
-    const moves = orderedMoves(room);
+    const events = orderedEvents(room);
     let cancelled = false;
 
     async function replay() {
-      if (moves.length < appliedRef.current) return;
+      if (events.length < appliedRef.current) return;
 
-      // initial catch-up: apply all moves instantly
+      // initial catch-up: apply all events instantly
       if (!didInitRef.current) {
-        for (let i = 0; i < moves.length; i++) {
+        for (let i = 0; i < events.length; i++) {
+          const ev = events[i];
           try {
-            engine.place({ row: moves[i].row, col: moves[i].col });
+            if (ev.kind === 'move') {
+              engine.place({ row: ev.move.row, col: ev.move.col });
+            } else {
+              engine.forfeit(String(ev.seat));
+            }
           } catch {
             /* invalid, skip */
           }
         }
-        appliedRef.current = moves.length;
+        appliedRef.current = events.length;
         didInitRef.current = true;
         setBoard(JSON.parse(JSON.stringify(engine.board)) as BoardT);
         setCurrent(engine.currentPlayer());
         setEliminated(new Set(engine.eliminated));
+        const active = engine.activePlayers();
+        if (engine.moved.size >= 2 && active.length <= 1 && active[0]) {
+          setWinner(active[0]);
+        }
         return;
       }
 
-      // animate each new move
+      // animate each new event
       setBusy(true);
-      for (let i = appliedRef.current; i < moves.length; i++) {
+      for (let i = appliedRef.current; i < events.length; i++) {
         if (cancelled) break;
+        const ev = events[i];
         try {
-          const res = engine.place({ row: moves[i].row, col: moves[i].col });
-          for (let s = 0; s < res.states.length; s++) {
-            if (cancelled) break;
-            setBoard(res.states[s]);
-            const hasExplode = res.states[s].some((r) => r.some((c) => c.exploded));
-            playPop();
-            await new Promise((r) => setTimeout(r, hasExplode ? EXPLODE_DURATION : PLACE_DURATION));
+          if (ev.kind === 'move') {
+            const res = engine.place({ row: ev.move.row, col: ev.move.col });
+            for (let s = 0; s < res.states.length; s++) {
+              if (cancelled) break;
+              setBoard(res.states[s]);
+              const hasExplode = res.states[s].some((r) => r.some((c) => c.exploded));
+              playPop();
+              await new Promise((r) => setTimeout(r, hasExplode ? EXPLODE_DURATION : PLACE_DURATION));
+            }
+            setEliminated(new Set(engine.eliminated));
+            if (res.winner) setWinner(res.winner);
+            else setCurrent(res.nextPlayer);
+          } else {
+            const res = engine.forfeit(String(ev.seat));
+            setBoard(JSON.parse(JSON.stringify(engine.board)) as BoardT);
+            setEliminated(new Set(engine.eliminated));
+            if (res.winner) setWinner(res.winner);
+            else setCurrent(engine.currentPlayer());
           }
-          setEliminated(new Set(engine.eliminated));
-          if (res.winner) setWinner(res.winner);
-          else setCurrent(res.nextPlayer);
         } catch {
-          /* invalid move, skip */
+          /* invalid event, skip */
         }
         appliedRef.current = i + 1;
       }
@@ -453,20 +478,48 @@ function OnlineGame({
     return subscribeChat(room.id, setChatMsgs);
   }, [room.id]);
 
+  const [reactions, setReactions] = useState<Array<Reaction & { id: string }>>([]);
+  useEffect(() => {
+    return subscribeReactions(room.id, setReactions);
+  }, [room.id]);
+
+  const visibleReactions = useMemo(() => {
+    const now = Date.now();
+    return reactions
+      .filter((r) => now - r.ts < 2500)
+      .map(({ id, seat, emoji }) => ({ id, seat, emoji }));
+  }, [reactions]);
+
+  const onReact = useCallback(
+    async (emoji: string) => {
+      try {
+        const rid = await sendReaction(room.id, { uid: myUid, seat: mySeat, emoji });
+        setTimeout(() => {
+          removeReaction(room.id, rid).catch(() => {});
+        }, 3000);
+      } catch (e) {
+        console.error(e);
+      }
+    },
+    [room.id, myUid, mySeat],
+  );
+
   const myName = room.seats?.[mySeatId]?.name ?? 'Player';
 
   useEffect(() => {
     if (!room.rematch) return;
     const votes = room.rematch.votes ?? {};
+    const kicked = room.kicked ?? {};
     const seatUids = Object.values(room.seats ?? {})
       .filter(Boolean)
-      .map((s) => s.uid);
+      .map((s) => s.uid)
+      .filter((u) => !kicked[u]);
     if (seatUids.length < 2) return;
     const allYes = seatUids.every((u) => votes[u]);
     if (allYes) {
       tryFinalizeRematch(room.id).catch(console.error);
     }
-  }, [room.rematch, room.seats, room.id]);
+  }, [room.rematch, room.seats, room.kicked, room.id]);
   const onSendChat = useCallback(
     async (text: string) => {
       const trimmed = text.trim();
@@ -492,14 +545,21 @@ function OnlineGame({
         onCellClick={handleClick}
       />
       <HUD
-        players={engine.players}
+        players={visiblePlayers}
         current={current}
         counts={counts}
         eliminated={eliminated}
         onReset={onExit}
         mineId={mySeatId}
         statusText={statusText}
+        isHost={room.hostUid === myUid}
+        onKick={(seatIdx) => {
+          if (!window.confirm(`Remove ${engine.players[seatIdx]?.name ?? 'player'}?`)) return;
+          kickPlayer(room.id, seatIdx).catch(console.error);
+        }}
+        reactions={visibleReactions}
       />
+      <ReactionBar onReact={onReact} disabled={!!winner} />
       <ChatPanel
         messages={chatMsgs}
         players={engine.players}
@@ -507,12 +567,14 @@ function OnlineGame({
         onSend={onSendChat}
       />
       {winner && (() => {
+        const kicked = room.kicked ?? {};
         const seatUids = Object.values(room.seats ?? {})
           .filter(Boolean)
-          .map((s) => s.uid);
+          .map((s) => s.uid)
+          .filter((u) => !kicked[u]);
         const seatNames: Record<string, string> = {};
         for (const [idx, s] of Object.entries(room.seats ?? {})) {
-          if (s?.uid) seatNames[s.uid] = engine.players[Number(idx)]?.name ?? s.name;
+          if (s?.uid && !kicked[s.uid]) seatNames[s.uid] = engine.players[Number(idx)]?.name ?? s.name;
         }
         return (
           <WinnerModal
@@ -578,6 +640,7 @@ export default function App() {
   const [room, setRoom] = useState<Room | null>(null);
   const [mySeat, setMySeat] = useState<number>(-1);
   const [error, setError] = useState<string | null>(null);
+  const [kickedNotice, setKickedNotice] = useState(false);
   const [name, setName] = useState<string>(() => {
     return localStorage.getItem('crName') ?? 'Player';
   });
@@ -594,6 +657,17 @@ export default function App() {
     });
     return unsub;
   }, [route]);
+
+  useEffect(() => {
+    if (route.kind !== 'online' || !room || !uid) return;
+    if (room.kicked?.[uid]) {
+      setKickedNotice(true);
+      setRoute({ kind: 'start' });
+      setRoom(null);
+      setMySeat(-1);
+      setShowStart(false);
+    }
+  }, [room, uid, route.kind]);
 
   useEffect(() => {
     if (route.kind === 'online') {
@@ -637,7 +711,13 @@ export default function App() {
       setPendingJoin(undefined);
       setRoute({ kind: 'online', roomId: code, mySeat: seat });
     } catch (e) {
-      setError(e instanceof Error ? e.message : String(e));
+      const msg = e instanceof Error ? e.message : String(e);
+      if (/removed/i.test(msg)) {
+        setShowStart(false);
+        setKickedNotice(true);
+      } else {
+        setError(msg);
+      }
     }
   };
 
@@ -697,6 +777,11 @@ export default function App() {
           canStart={room.hostUid === uid}
           onStart={() => startRoom(room.id).catch(console.error)}
           onLeave={exit}
+          onKick={(seatIdx) => {
+            const name = room.seats?.[String(seatIdx)]?.name ?? 'player';
+            if (!window.confirm(`Remove ${name}?`)) return;
+            kickPlayer(room.id, seatIdx).catch(console.error);
+          }}
         />
       );
     }
@@ -725,6 +810,19 @@ export default function App() {
         />
       )}
       {error && <div className="error-toast">{error}</div>}
+      {kickedNotice && (
+        <div className="modal-backdrop kicked-backdrop">
+          <div className="modal kicked-modal">
+            <div className="modal-label">Removed from room</div>
+            <div className="sub">
+              The host removed you from this room. You can't rejoin.
+            </div>
+            <button className="start-btn" onClick={() => setKickedNotice(false)}>
+              Got it
+            </button>
+          </div>
+        </div>
+      )}
     </>
   );
 }

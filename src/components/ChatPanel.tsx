@@ -25,7 +25,7 @@ export function ChatPanel({ messages, players, myUid, onSend }: Props) {
 
   useEffect(() => {
     if (!open) return;
-    listRef.current?.scrollTo({ top: listRef.current.scrollHeight, behavior: 'smooth' });
+    if (listRef.current) listRef.current.scrollTop = listRef.current.scrollHeight;
     setSeen(messages.length);
   }, [messages, open]);
 

@@ -8,11 +8,13 @@ interface Props {
   canStart: boolean;
   onStart: () => void;
   onLeave: () => void;
+  onKick?: (seatIdx: number) => void;
 }
 
 const PALETTE = ['#ff3b6b', '#ffb84d', '#4dd0ff', '#66e07a', '#c477ff', '#f5f26e', '#ff7a3d', '#7af0c5'];
 
-export function LobbyScreen({ room, uid, shareUrl, canStart, onStart, onLeave }: Props) {
+export function LobbyScreen({ room, uid, shareUrl, canStart, onStart, onLeave, onKick }: Props) {
+  const isHost = room.hostUid === uid;
   const [copied, setCopied] = useState(false);
   const seats = useMemo(() => {
     const out: Array<{ idx: number; seat: { uid: string; name: string } | null }> = [];
@@ -45,19 +47,32 @@ export function LobbyScreen({ room, uid, shareUrl, canStart, onStart, onLeave }:
             Players ({filled}/{room.config.players})
           </label>
           <div className="seats">
-            {seats.map(({ idx, seat }) => (
-              <div
-                key={idx}
-                className={`seat${seat ? ' taken' : ' empty'}${seat?.uid === uid ? ' me' : ''}`}
-                style={{ borderColor: PALETTE[idx] }}
-              >
-                <span className="dot" style={{ background: PALETTE[idx] }} />
-                <span className="name">
-                  {seat ? seat.name : 'Waiting…'}
-                  {seat?.uid === uid ? ' (you)' : ''}
-                </span>
-              </div>
-            ))}
+            {seats.map(({ idx, seat }) => {
+              const canKick = isHost && !!seat && seat.uid !== uid && !!onKick;
+              return (
+                <div
+                  key={idx}
+                  className={`seat${seat ? ' taken' : ' empty'}${seat?.uid === uid ? ' me' : ''}`}
+                  style={{ borderColor: PALETTE[idx] }}
+                >
+                  <span className="dot" style={{ background: PALETTE[idx] }} />
+                  <span className="name">
+                    {seat ? seat.name : 'Waiting…'}
+                    {seat?.uid === uid ? ' (you)' : ''}
+                  </span>
+                  {canKick && (
+                    <button
+                      className="kick-btn"
+                      title="Remove player"
+                      onClick={() => onKick?.(idx)}
+                      aria-label={`Remove ${seat!.name}`}
+                    >
+                      ×
+                    </button>
+                  )}
+                </div>
+              );
+            })}
           </div>
         </div>
 
