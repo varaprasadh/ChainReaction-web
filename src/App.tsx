@@ -16,7 +16,6 @@ import { ensureAuth } from './net/firebase';
 import {
   cancelRematch,
   createRoom,
-  forfeitSeat,
   joinRoom,
   kickPlayer,
   orderedEvents,
@@ -24,6 +23,7 @@ import {
   removeReaction,
   sendChat,
   sendReaction,
+  skipTurn,
   startRoom,
   subscribeChat,
   subscribeReactions,
@@ -396,8 +396,10 @@ function OnlineGame({
           try {
             if (ev.kind === 'move') {
               engine.place({ row: ev.move.row, col: ev.move.col });
-            } else {
+            } else if (ev.kind === 'forfeit') {
               engine.forfeit(String(ev.seat));
+            } else {
+              engine.skipTurn(String(ev.seat));
             }
           } catch {
             /* invalid, skip */
@@ -433,12 +435,15 @@ function OnlineGame({
             setEliminated(new Set(engine.eliminated));
             if (res.winner) setWinner(res.winner);
             else setCurrent(res.nextPlayer);
-          } else {
+          } else if (ev.kind === 'forfeit') {
             const res = engine.forfeit(String(ev.seat));
             setBoard(JSON.parse(JSON.stringify(engine.board)) as BoardT);
             setEliminated(new Set(engine.eliminated));
             if (res.winner) setWinner(res.winner);
             else setCurrent(engine.currentPlayer());
+          } else {
+            engine.skipTurn(String(ev.seat));
+            setCurrent(engine.currentPlayer());
           }
         } catch {
           /* invalid event, skip */
@@ -568,7 +573,11 @@ function OnlineGame({
           color={current.color}
           myTurn={myTurn}
           onExpire={() => {
-            forfeitSeat(room.id, Number(current.id)).catch(console.error);
+            const turnIdx =
+              Object.keys(room.moves ?? {}).length +
+              Object.keys(room.forfeits ?? {}).length +
+              Object.keys(room.skips ?? {}).length;
+            skipTurn(room.id, turnIdx, Number(current.id)).catch(console.error);
           }}
         />
       )}

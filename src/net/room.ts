@@ -49,11 +49,18 @@ export interface Room {
   rematch?: Rematch | null;
   kicked?: Record<string, number>;
   forfeits?: Record<string, number>;
+  skips?: Record<string, SkipRecord>;
 }
 
 export type RoomEvent =
   | { kind: 'move'; move: MoveRecord }
-  | { kind: 'forfeit'; seat: number; ts: number };
+  | { kind: 'forfeit'; seat: number; ts: number }
+  | { kind: 'skip'; seat: number; ts: number };
+
+export interface SkipRecord {
+  seat: number;
+  ts: number;
+}
 
 const CODE_ALPHABET = 'ABCDEFGHJKMNPQRSTVWXYZ23456789';
 
@@ -160,10 +167,16 @@ export async function endRoom(id: string): Promise<void> {
   await update(ref(db, `rooms/${id}`), { status: 'ended' });
 }
 
-export async function forfeitSeat(id: string, seatIdx: number): Promise<void> {
-  await update(ref(db, `rooms/${id}`), {
-    [`forfeits/${seatIdx}`]: Date.now(),
-  });
+export async function skipTurn(
+  id: string,
+  turnIdx: number,
+  seatIdx: number,
+): Promise<boolean> {
+  const skipRef = ref(db, `rooms/${id}/skips/t${turnIdx}`);
+  const res = await runTransaction(skipRef, (curr) =>
+    curr ? undefined : { seat: seatIdx, ts: Date.now() },
+  );
+  return res.committed;
 }
 
 export async function kickPlayer(id: string, seatIdx: number): Promise<void> {
@@ -192,6 +205,9 @@ export function orderedEvents(room: Room): RoomEvent[] {
   }
   for (const [idx, ts] of Object.entries(room.forfeits ?? {})) {
     events.push({ kind: 'forfeit', seat: Number(idx), ts: Number(ts) });
+  }
+  for (const rec of Object.values(room.skips ?? {})) {
+    events.push({ kind: 'skip', seat: rec.seat, ts: rec.ts });
   }
   events.sort((a, b) => {
     const ta = a.kind === 'move' ? a.move.ts : a.ts;
@@ -233,6 +249,7 @@ export async function tryFinalizeRematch(id: string): Promise<void> {
     rematch: null,
     forfeits: null,
     reactions: null,
+    skips: null,
   });
 }
 

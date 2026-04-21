@@ -236,6 +236,12 @@ export class ChainReaction {
     };
   }
 
+  skipTurn(playerId: string): void {
+    if (this.eliminated.has(playerId)) return;
+    if (this.currentPlayer().id !== playerId) return;
+    this.advance();
+  }
+
   forfeit(playerId: string): { winner: Player | null } {
     if (this.eliminated.has(playerId)) return { winner: null };
     const player = this.players.find((p) => p.id === playerId);
