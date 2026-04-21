@@ -160,6 +160,12 @@ export async function endRoom(id: string): Promise<void> {
   await update(ref(db, `rooms/${id}`), { status: 'ended' });
 }
 
+export async function forfeitSeat(id: string, seatIdx: number): Promise<void> {
+  await update(ref(db, `rooms/${id}`), {
+    [`forfeits/${seatIdx}`]: Date.now(),
+  });
+}
+
 export async function kickPlayer(id: string, seatIdx: number): Promise<void> {
   const roomRef = ref(db, `rooms/${id}`);
   const snap = await get(roomRef);

@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react';
 import type { Room } from '../net/room';
+import { ConfirmModal } from './ConfirmModal';
 
 interface Props {
   room: Room;
@@ -16,6 +17,7 @@ const PALETTE = ['#ff3b6b', '#ffb84d', '#4dd0ff', '#66e07a', '#c477ff', '#f5f26e
 export function LobbyScreen({ room, uid, shareUrl, canStart, onStart, onLeave, onKick }: Props) {
   const isHost = room.hostUid === uid;
   const [copied, setCopied] = useState(false);
+  const [confirmKick, setConfirmKick] = useState<{ seatIdx: number; name: string } | null>(null);
   const seats = useMemo(() => {
     const out: Array<{ idx: number; seat: { uid: string; name: string } | null }> = [];
     for (let i = 0; i < room.config.players; i++) {
@@ -64,7 +66,7 @@ export function LobbyScreen({ room, uid, shareUrl, canStart, onStart, onLeave, o
                     <button
                       className="kick-btn"
                       title="Remove player"
-                      onClick={() => onKick?.(idx)}
+                      onClick={() => setConfirmKick({ seatIdx: idx, name: seat!.name })}
                       aria-label={`Remove ${seat!.name}`}
                     >
                       ×
@@ -95,6 +97,20 @@ export function LobbyScreen({ room, uid, shareUrl, canStart, onStart, onLeave, o
           {!canStart && <div className="waiting">Waiting for host…</div>}
         </div>
       </div>
+      {confirmKick && (
+        <ConfirmModal
+          title="Remove player"
+          message={`Remove ${confirmKick.name} from the room? They won't be able to rejoin.`}
+          confirmLabel="Remove"
+          cancelLabel="Cancel"
+          danger
+          onConfirm={() => {
+            onKick?.(confirmKick.seatIdx);
+            setConfirmKick(null);
+          }}
+          onCancel={() => setConfirmKick(null)}
+        />
+      )}
     </div>
   );
 }

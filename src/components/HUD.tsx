@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import type { Player } from '../game/types';
 import { HowToPlay } from './HowToPlay';
+import { ConfirmModal } from './ConfirmModal';
 
 interface Props {
   players: Player[];
@@ -16,6 +17,9 @@ interface Props {
 
 export function HUD({ players, current, counts, eliminated, onReset, mineId, statusText, isHost, onKick }: Props) {
   const [showHelp, setShowHelp] = useState(false);
+  const [confirmExit, setConfirmExit] = useState(false);
+  const [confirmKick, setConfirmKick] = useState<{ seatIdx: number; name: string } | null>(null);
+
   return (
     <div className="hud">
       <div className="hud-title">Chain Reaction</div>
@@ -41,7 +45,7 @@ export function HUD({ players, current, counts, eliminated, onReset, mineId, sta
                   className="kick-btn"
                   title="Remove player"
                   aria-label={`Remove ${p.name}`}
-                  onClick={() => onKick?.(Number(p.id))}
+                  onClick={() => setConfirmKick({ seatIdx: Number(p.id), name: p.name })}
                 >
                   ×
                 </button>
@@ -66,11 +70,39 @@ export function HUD({ players, current, counts, eliminated, onReset, mineId, sta
         >
           ?
         </button>
-        <button className="reset" onClick={onReset}>
+        <button className="reset" onClick={() => setConfirmExit(true)}>
           Exit
         </button>
       </div>
       {showHelp && <HowToPlay onClose={() => setShowHelp(false)} />}
+      {confirmExit && (
+        <ConfirmModal
+          title="Exit game"
+          message="Leave this game? Your progress will be lost."
+          confirmLabel="Exit"
+          cancelLabel="Stay"
+          danger
+          onConfirm={() => {
+            setConfirmExit(false);
+            onReset();
+          }}
+          onCancel={() => setConfirmExit(false)}
+        />
+      )}
+      {confirmKick && (
+        <ConfirmModal
+          title="Remove player"
+          message={`Remove ${confirmKick.name} from the game? They won't be able to rejoin.`}
+          confirmLabel="Remove"
+          cancelLabel="Cancel"
+          danger
+          onConfirm={() => {
+            onKick?.(confirmKick.seatIdx);
+            setConfirmKick(null);
+          }}
+          onCancel={() => setConfirmKick(null)}
+        />
+      )}
     </div>
   );
 }

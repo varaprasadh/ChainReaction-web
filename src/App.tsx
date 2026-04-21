@@ -16,6 +16,7 @@ import { ensureAuth } from './net/firebase';
 import {
   cancelRematch,
   createRoom,
+  forfeitSeat,
   joinRoom,
   kickPlayer,
   orderedEvents,
@@ -36,6 +37,7 @@ import {
 import { ChatPanel } from './components/ChatPanel';
 import { ReactionBar } from './components/ReactionBar';
 import { ReactionToasts } from './components/ReactionToasts';
+import { TurnTimer } from './components/TurnTimer';
 import { AdminPage } from './components/AdminPage';
 import './App.css';
 
@@ -365,6 +367,7 @@ function OnlineGame({
   const [winner, setWinner] = useState<Player | null>(null);
   const [eliminated, setEliminated] = useState<Set<string>>(new Set());
   const [busy, setBusy] = useState(false);
+  const [turnStartedAt, setTurnStartedAt] = useState<number>(() => Date.now());
   const appliedRef = useRef(0);
   const didInitRef = useRef(false);
   const playPop = useAudioPop();
@@ -466,6 +469,11 @@ function OnlineGame({
     [busy, winner, engine, mySeat, room],
   );
 
+  useEffect(() => {
+    if (busy || winner) return;
+    setTurnStartedAt(Date.now());
+  }, [current.id, busy, winner]);
+
   const mySeatId = String(mySeat);
   const myTurn = engine.currentPlayer().id === mySeatId;
   const statusText = winner
@@ -548,12 +556,22 @@ function OnlineGame({
         statusText={statusText}
         isHost={room.hostUid === myUid}
         onKick={(seatIdx) => {
-          if (!window.confirm(`Remove ${engine.players[seatIdx]?.name ?? 'player'}?`)) return;
           kickPlayer(room.id, seatIdx).catch(console.error);
         }}
       />
       <ReactionBar onReact={onReact} disabled={!!winner} />
       <ReactionToasts reactions={reactions} players={engine.players} />
+      {!winner && (
+        <TurnTimer
+          startedAt={turnStartedAt}
+          durationMs={30000}
+          color={current.color}
+          myTurn={myTurn}
+          onExpire={() => {
+            forfeitSeat(room.id, Number(current.id)).catch(console.error);
+          }}
+        />
+      )}
       <ChatPanel
         messages={chatMsgs}
         players={engine.players}
@@ -772,8 +790,6 @@ export default function App() {
           onStart={() => startRoom(room.id).catch(console.error)}
           onLeave={exit}
           onKick={(seatIdx) => {
-            const name = room.seats?.[String(seatIdx)]?.name ?? 'player';
-            if (!window.confirm(`Remove ${name}?`)) return;
             kickPlayer(room.id, seatIdx).catch(console.error);
           }}
         />

@@ -1440,6 +1440,45 @@ canvas {
   box-shadow: 0 12px 30px rgba(0, 0, 0, 0.5);
 }
 
+.start-btn.danger {
+  background: #ff3b6b !important;
+  color: #fff !important;
+  box-shadow: 0 8px 22px rgba(255, 59, 107, 0.45);
+}
+
+.start-btn.danger:hover:not(:disabled) {
+  background: #ff547d !important;
+  box-shadow: 0 12px 30px rgba(255, 59, 107, 0.55);
+}
+
+.confirm-backdrop {
+  z-index: 900;
+}
+
+.confirm-modal {
+  max-width: 380px;
+  min-width: min(300px, 100%);
+  padding: 28px 32px 24px;
+}
+
+.confirm-modal .sub {
+  margin: 10px 0 22px;
+  color: #c7cbe8;
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.confirm-modal .modal-actions {
+  gap: 12px;
+}
+
+.confirm-modal .modal-actions .ghost-btn,
+.confirm-modal .modal-actions .start-btn {
+  flex: 1;
+  width: auto;
+  margin-top: 0;
+}
+
 .start-btn:disabled {
   opacity: 0.45;
   cursor: not-allowed;
@@ -2031,6 +2070,74 @@ canvas {
     right: max(10px, env(safe-area-inset-right));
     bottom: calc(max(10px, env(safe-area-inset-bottom)) + 58px);
     max-width: 70%;
+  }
+}
+
+.turn-timer {
+  --c: #fff;
+  --pct: 1;
+  position: absolute;
+  top: max(72px, calc(env(safe-area-inset-top) + 72px));
+  left: 50%;
+  transform: translateX(-50%);
+  width: 52px;
+  height: 52px;
+  border-radius: 50%;
+  background: rgba(10, 12, 26, 0.88);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 12;
+  pointer-events: none;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+  backdrop-filter: blur(8px);
+  transition: transform 0.2s ease;
+}
+
+.turn-timer-ring {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  padding: 3px;
+  background: conic-gradient(
+    var(--c) calc(var(--pct) * 360deg),
+    rgba(255, 255, 255, 0.1) 0
+  );
+  -webkit-mask: radial-gradient(circle, transparent 60%, #000 61%);
+  mask: radial-gradient(circle, transparent 60%, #000 61%);
+}
+
+.turn-timer-num {
+  position: relative;
+  font-size: 18px;
+  font-weight: 700;
+  color: #f4f5fa;
+  font-variant-numeric: tabular-nums;
+}
+
+.turn-timer.own {
+  transform: translateX(-50%) scale(1.06);
+}
+
+.turn-timer.own .turn-timer-num {
+  color: var(--c);
+  text-shadow: 0 0 10px color-mix(in srgb, var(--c) 60%, transparent);
+}
+
+.turn-timer.critical {
+  animation: timer-pulse 0.7s ease-in-out infinite;
+}
+
+.turn-timer.critical .turn-timer-num {
+  color: #ff6b87;
+}
+
+@keyframes timer-pulse {
+  0%, 100% {
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5), 0 0 0 0 rgba(255, 59, 107, 0.5);
+  }
+  50% {
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5), 0 0 0 8px rgba(255, 59, 107, 0);
   }
 }
 
