@@ -57,7 +57,9 @@ export function WinnerModal({ winner, onPlayAgain, primaryLabel = 'Play again', 
   return (
     <div className="modal-backdrop">
       <div className="modal" style={{ boxShadow: `0 0 80px ${winner.color}` }}>
-        <div className="winner-ring" style={{ background: winner.color }} />
+        <div className="winner-ring" style={{ ['--c' as string]: winner.color }}>
+          <span className="winner-trophy" aria-hidden>🏆</span>
+        </div>
         <div className="modal-label">Winner</div>
         <div className="modal-name" style={{ color: winner.color }}>
           {winner.name}
