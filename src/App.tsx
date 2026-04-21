@@ -40,6 +40,7 @@ import { ChatPanel } from './components/ChatPanel';
 import { ReactionBar } from './components/ReactionBar';
 import { ReactionToasts } from './components/ReactionToasts';
 import { TurnTimer } from './components/TurnTimer';
+import { ConfirmModal } from './components/ConfirmModal';
 import { AdminPage } from './components/AdminPage';
 import './App.css';
 
@@ -513,6 +514,26 @@ function OnlineGame({
     setTurnStartedAt(Date.now());
   }, [current.id, busy, winner]);
 
+  const [confirmLeave, setConfirmLeave] = useState(false);
+  useEffect(() => {
+    if (winner) return;
+    const onBeforeUnload = (e: BeforeUnloadEvent) => {
+      e.preventDefault();
+      e.returnValue = '';
+    };
+    window.history.pushState({ guard: Date.now() }, '');
+    const onPopState = () => {
+      window.history.pushState({ guard: Date.now() }, '');
+      setConfirmLeave(true);
+    };
+    window.addEventListener('beforeunload', onBeforeUnload);
+    window.addEventListener('popstate', onPopState);
+    return () => {
+      window.removeEventListener('beforeunload', onBeforeUnload);
+      window.removeEventListener('popstate', onPopState);
+    };
+  }, [winner]);
+
   const mySeatId = String(mySeat);
   const myTurn = engine.currentPlayer().id === mySeatId;
   const statusText = winner
@@ -613,6 +634,20 @@ function OnlineGame({
               Object.keys(room.skips ?? {}).length;
             skipTurn(room.id, turnIdx, Number(current.id)).catch(console.error);
           }}
+        />
+      )}
+      {confirmLeave && (
+        <ConfirmModal
+          title="Leave game?"
+          message="Your turns will be skipped until you return. Really exit?"
+          confirmLabel="Leave"
+          cancelLabel="Stay"
+          danger
+          onConfirm={() => {
+            setConfirmLeave(false);
+            onExit();
+          }}
+          onCancel={() => setConfirmLeave(false)}
         />
       )}
       <ChatPanel
