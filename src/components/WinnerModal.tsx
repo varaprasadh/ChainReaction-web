@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, type ReactNode } from 'react';
 import type { Player } from '../game/types';
 import {
   APP_URL,
@@ -22,9 +22,10 @@ interface Props {
   onPlayAgain: () => void;
   primaryLabel?: string;
   rematch?: RematchState;
+  chart?: ReactNode;
 }
 
-export function WinnerModal({ winner, onPlayAgain, primaryLabel = 'Play again', rematch }: Props) {
+export function WinnerModal({ winner, onPlayAgain, primaryLabel = 'Play again', rematch, chart }: Props) {
   const voted = rematch ? !!rematch.votes[rematch.myUid] : false;
   const agreed = rematch ? rematch.seatUids.filter((u) => rematch.votes[u]).length : 0;
   const total = rematch?.seatUids.length ?? 0;
@@ -61,6 +62,8 @@ export function WinnerModal({ winner, onPlayAgain, primaryLabel = 'Play again', 
         <div className="modal-name" style={{ color: winner.color }}>
           {winner.name}
         </div>
+
+        {chart}
 
         {rematch ? (
           <>

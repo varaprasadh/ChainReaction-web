@@ -2141,6 +2141,74 @@ canvas {
   }
 }
 
+.cortisol-card {
+  margin: 6px 0 20px;
+  padding: 12px 14px 10px;
+  border-radius: 14px;
+  background: rgba(8, 10, 24, 0.6);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  text-align: left;
+}
+
+.cortisol-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  margin-bottom: 6px;
+}
+
+.cortisol-title {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: #c7cbe8;
+}
+
+.cortisol-unit {
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  color: rgba(200, 205, 235, 0.5);
+  font-style: italic;
+}
+
+.cortisol-svg {
+  display: block;
+  width: 100%;
+  height: auto;
+  max-height: 180px;
+}
+
+.cortisol-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 12px;
+  margin-top: 8px;
+  font-size: 11px;
+  color: #b8bcdb;
+}
+
+.cortisol-legend-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.cortisol-swatch {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  box-shadow: 0 0 8px currentColor;
+}
+
+.cortisol-disclaimer {
+  margin-top: 4px;
+  font-size: 10px;
+  color: rgba(200, 205, 235, 0.4);
+  font-style: italic;
+  letter-spacing: 0.02em;
+}
+
 .reaction-bar {
   position: fixed;
   left: 50%;

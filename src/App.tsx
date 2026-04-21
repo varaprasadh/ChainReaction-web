@@ -8,6 +8,7 @@ import { Board } from './components/Board';
 import { Atom, OFFSETS, cellToWorld } from './components/Atom';
 import { HUD } from './components/HUD';
 import { WinnerModal } from './components/WinnerModal';
+import { CortisolChart } from './components/CortisolChart';
 import { StartScreen } from './components/StartScreen';
 import { LandingPage } from './components/LandingPage';
 import { LobbyScreen } from './components/LobbyScreen';
@@ -43,6 +44,16 @@ import './App.css';
 
 const EXPLODE_DURATION = 420;
 const PLACE_DURATION = 280;
+
+function snapshotCounts(board: BoardT): Map<string, number> {
+  const m = new Map<string, number>();
+  for (const row of board) {
+    for (const cell of row) {
+      if (cell.owner) m.set(cell.owner.id, (m.get(cell.owner.id) ?? 0) + cell.atoms.length);
+    }
+  }
+  return m;
+}
 
 export type SeatKind = 'human' | 'bot-easy' | 'bot-medium' | 'bot-hard';
 
@@ -218,6 +229,7 @@ function LocalGame({ config, onExit }: { config: GameConfig; onExit: () => void 
   const [winner, setWinner] = useState<Player | null>(null);
   const [eliminated, setEliminated] = useState<Set<string>>(new Set());
   const [busy, setBusy] = useState(false);
+  const [atomHistory, setAtomHistory] = useState<Array<Map<string, number>>>([]);
 
   const playPop = useAudioPop();
 
@@ -241,6 +253,8 @@ function LocalGame({ config, onExit }: { config: GameConfig; onExit: () => void 
         await new Promise((r) => setTimeout(r, hasExplode ? EXPLODE_DURATION : PLACE_DURATION));
       }
       setEliminated(new Set(elim));
+      const finalBoard = states[states.length - 1];
+      setAtomHistory((prev) => [...prev, snapshotCounts(finalBoard)]);
       if (finalWinner) setWinner(finalWinner);
       else setCurrent(nextPlayer);
       setBusy(false);
@@ -307,6 +321,7 @@ function LocalGame({ config, onExit }: { config: GameConfig; onExit: () => void 
     setEliminated(new Set());
     setWinner(null);
     setBusy(false);
+    setAtomHistory([]);
   }, [engine]);
 
   return (
@@ -327,7 +342,20 @@ function LocalGame({ config, onExit }: { config: GameConfig; onExit: () => void 
         onReset={onExit}
         statusText={botThinking ? `${current.name} thinking…` : undefined}
       />
-      {winner && <WinnerModal winner={winner} onPlayAgain={playAgain} />}
+      {winner && (
+        <WinnerModal
+          winner={winner}
+          onPlayAgain={playAgain}
+          chart={
+            <CortisolChart
+              players={engine.players}
+              atomHistory={atomHistory}
+              eliminated={eliminated}
+              winnerId={winner.id}
+            />
+          }
+        />
+      )}
     </div>
   );
 }
@@ -368,6 +396,7 @@ function OnlineGame({
   const [eliminated, setEliminated] = useState<Set<string>>(new Set());
   const [busy, setBusy] = useState(false);
   const [turnStartedAt, setTurnStartedAt] = useState<number>(() => Date.now());
+  const [atomHistory, setAtomHistory] = useState<Array<Map<string, number>>>([]);
   const appliedRef = useRef(0);
   const didInitRef = useRef(false);
   const playPop = useAudioPop();
@@ -391,6 +420,7 @@ function OnlineGame({
 
       // initial catch-up: apply all events instantly
       if (!didInitRef.current) {
+        const history: Array<Map<string, number>> = [];
         for (let i = 0; i < events.length; i++) {
           const ev = events[i];
           try {
@@ -404,12 +434,14 @@ function OnlineGame({
           } catch {
             /* invalid, skip */
           }
+          history.push(snapshotCounts(engine.board));
         }
         appliedRef.current = events.length;
         didInitRef.current = true;
         setBoard(JSON.parse(JSON.stringify(engine.board)) as BoardT);
         setCurrent(engine.currentPlayer());
         setEliminated(new Set(engine.eliminated));
+        setAtomHistory(history);
         const active = engine.activePlayers();
         if (engine.moved.size >= 2 && active.length <= 1 && active[0]) {
           setWinner(active[0]);
@@ -445,6 +477,7 @@ function OnlineGame({
             engine.skipTurn(String(ev.seat));
             setCurrent(engine.currentPlayer());
           }
+          setAtomHistory((prev) => [...prev, snapshotCounts(engine.board)]);
         } catch {
           /* invalid event, skip */
         }
@@ -601,6 +634,14 @@ function OnlineGame({
           <WinnerModal
             winner={winner}
             onPlayAgain={onExit}
+            chart={
+              <CortisolChart
+                players={visiblePlayers}
+                atomHistory={atomHistory}
+                eliminated={eliminated}
+                winnerId={winner.id}
+              />
+            }
             rematch={{
               myUid,
               seatUids,
