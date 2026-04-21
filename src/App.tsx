@@ -17,6 +17,7 @@ import { ensureAuth } from './net/firebase';
 import {
   cancelRematch,
   createRoom,
+  findExistingSeat,
   joinRoom,
   kickPlayer,
   orderedEvents,
@@ -703,6 +704,7 @@ export default function App() {
   const [mySeat, setMySeat] = useState<number>(-1);
   const [error, setError] = useState<string | null>(null);
   const [kickedNotice, setKickedNotice] = useState(false);
+  const [startedNotice, setStartedNotice] = useState(false);
   const [name, setName] = useState<string>(() => {
     return localStorage.getItem('crName') ?? 'Player';
   });
@@ -710,6 +712,25 @@ export default function App() {
   useEffect(() => {
     ensureAuth().then(setUid).catch((e) => setError(String(e)));
   }, []);
+
+  useEffect(() => {
+    if (!uid || !pendingJoin || route.kind !== 'start') return;
+    let cancelled = false;
+    findExistingSeat(pendingJoin, uid)
+      .then((seat) => {
+        if (cancelled || seat === null) return;
+        setMySeat(seat);
+        setPendingJoin(undefined);
+        setShowStart(false);
+        setRoute({ kind: 'online', roomId: pendingJoin, mySeat: seat });
+      })
+      .catch(() => {
+        /* fall through to normal join flow */
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [uid, pendingJoin, route.kind]);
 
   useEffect(() => {
     if (route.kind !== 'online') return;
@@ -777,6 +798,9 @@ export default function App() {
       if (/removed/i.test(msg)) {
         setShowStart(false);
         setKickedNotice(true);
+      } else if (/already started/i.test(msg)) {
+        setShowStart(false);
+        setStartedNotice(true);
       } else {
         setError(msg);
       }
@@ -878,6 +902,22 @@ export default function App() {
               The host removed you from this room. You can't rejoin.
             </div>
             <button className="start-btn" onClick={() => setKickedNotice(false)}>
+              Got it
+            </button>
+          </div>
+        </div>
+      )}
+      {startedNotice && (
+        <div className="modal-backdrop kicked-backdrop">
+          <div className="modal kicked-modal">
+            <div className="modal-label">Room already started</div>
+            <div className="sub">
+              This game is already in progress. Ask the host to create a new room or try a different code.
+            </div>
+            <button className="start-btn" onClick={() => {
+              setStartedNotice(false);
+              setPendingJoin(undefined);
+            }}>
               Got it
             </button>
           </div>

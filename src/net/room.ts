@@ -94,6 +94,18 @@ export async function createRoom(
   throw new Error('Could not allocate room code');
 }
 
+export async function findExistingSeat(id: string, uid: string): Promise<number | null> {
+  const snap = await get(ref(db, `rooms/${id}`));
+  if (!snap.exists()) return null;
+  const room = snap.val() as Omit<Room, 'id'>;
+  if (room.status === 'ended') return null;
+  if (room.kicked?.[uid]) return null;
+  for (const [idx, seat] of Object.entries(room.seats ?? {})) {
+    if (seat?.uid === uid) return Number(idx);
+  }
+  return null;
+}
+
 export async function joinRoom(
   id: string,
   uid: string,
